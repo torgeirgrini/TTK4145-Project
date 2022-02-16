@@ -1,7 +1,9 @@
 package main
 
-import "elevio"
-import "fmt"
+import (
+	"Project/localElevator/elevio"
+	"fmt"
+)
 
 func main() {
 
