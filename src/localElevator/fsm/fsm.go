@@ -5,15 +5,9 @@ import (
 	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/timer"
+	"Project/localElevator/requests"
 )
 
-func RunElevator(){//channels som input
-	//init elev:
-	elev := elevator.InitElev();
-	//set lights and door open lamp off
-
-	//for-select med state machines for ulike sensorinput
-} 
 
 func Fsm_OnRequestButtonPress(btn_floor int, btn_type elevio.ButtonType, elev elevator.Elevator){
 	switch elev.Behaviour{
@@ -23,88 +17,121 @@ func Fsm_OnRequestButtonPress(btn_floor int, btn_type elevio.ButtonType, elev el
 		} else{
 			elev.Requests[btn_floor][int(btn_type)] = true //vetke om trenger int()
 		}
+		break
 
 	case elevator.EB_Moving:
 		elev.Requests[btn_floor][int(btn_type)] = true 
+		break
 
 	case elevator.EB_Idle:
 		elev.Requests[btn_floor][int(btn_type)] = true
-        a = requests.Requests_nextAction(elev)
-        elev.Dirn = a.Dirn
-        elev.Behaviour = a.Behaviour
-		switch a.Behaviour{
+        action := requests.Requests_nextAction(elev)
+        elev.Dirn = action.Dirn
+        elev.Behaviour = action.Behaviour
+		switch action.Behaviour{
 		case elevator.EB_DoorOpen:
 			elevio.SetDoorOpenLamp(true)
 			timer.TimerStart(elev.DoorOpenDuration_s)
 			elev = requests.Requests_clearAtCurrentFloor(elev)
+			break
+		
 		case elevator.EB_Moving:
 			elevio.SetMotorDirection(elev.Dirn)
+			break
 		
-		//case elevator.EB_Idle:
-
+		case elevator.EB_Idle:
+			break
 		}
+		break
 	}
-	setAllLights(elev)
-
+	SetAllLights(elev)
 }
 
-func setAllLights(Elevator es) {
-	for floor := 0; floor < N_FLOORS; floor++ {
-        for btn := 0; btn < N_BUTTONS; btn++ {
-            elevio.SetButtonLamp(btn, floor, es.requests[floor][btn]);
+
+func Fsm_OnFloorArrival(newFloor int, elev elevator.Elevator){
+	elev.Floor = newFloor
+	elevio.SetFloorIndicator(elev.Floor)
+
+	switch elev.Behaviour{
+	case elevator.EB_Moving:
+		if requests.Requests_shouldStop(elev) { //Have orders in floor
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			elevio.SetDoorOpenLamp(true)
+			elev = requests.Requests_clearAtCurrentFloor(elev);
+			timer.TimerStart(elev.DoorOpenDuration_s)
+			SetAllLights(elev)
+			elev.Behaviour = elevator.EB_DoorOpen
+		}
+		break
+
+	default:
+		break
+	}
+}
+
+func Fsm_OnDoorTimeout(elev elevator.Elevator){
+	switch elev.Behaviour {
+	case elevator.EB_DoorOpen:
+		action := requests.Requests_nextAction(elev)
+		elev.Dirn = action.Dirn
+		elev.Behaviour = action.Behaviour
+
+		switch elev.Behaviour {
+		case elevator.EB_DoorOpen:
+			timer.TimerStart(elev.DoorOpenDuration_s)
+			elev = requests.Requests_clearAtCurrentFloor(elev)
+			SetAllLights(elev)
+			break
+		case elevator.EB_Moving:
+			//skal det være noe her? føler vi kan få udefinert oppførsel eller noe
+		case elevator.EB_Idle:
+			elevio.SetDoorOpenLamp(false)
+			elevio.SetMotorDirection(elev.Dirn)
+			break
+		}
+		break
+	}
+}
+
+func Fsm_OnInitBetweenFloors(elev elevator.Elevator){
+    elevio.SetMotorDirection(elevio.MD_Down)
+    elev.Dirn = elevio.MD_Down
+    elev.Behaviour = elevator.EB_Moving
+}
+
+func SetAllLights(elev elevator.Elevator) {
+	for floor := 0; floor < config.NumFloors; floor++ {
+        for btn := 0; btn < config.NumButtons; btn++ {
+            elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn]); //vet ikke om denne kan ta inn int som første param
         }
     }
 }
 
 
-func RunElevator (...) {
+func RunElevator(
+	ch_RequestButtonPress chan elevio.ButtonEvent,
+	ch_FloorArrival chan int,
+	ch_DoorTimeOut chan bool,
+	ch_Obstruction chan bool) {
 
+	elev := elevator.InitElev();
+
+	
 	for {
-
 		select {
-		case RequestButtonPress := <-ch.RequestButtonPress:
-			//Eirik sin funksjon
+		case newOrder := <-ch_RequestButtonPress:
+			Fsm_OnRequestButtonPress(newOrder.Floor, newOrder.Button, elev)
 			
-		case FloorArrival := <-ch.FloorArrival:
-			//print elevator
-			elevio.SetFloorIndicator(elevator.floor)
-
-			switch elev.Behaviour{
-			case EB_Moving:
-				if requests_shouldStop(elevator) { //Have orders in floor
-					elevio.SetMotorDirection(MD_Stop)
-					elevio.SetDoorOpenLamp(1)
-					elev = requests_clearAtCurrentFloor(elev);
-					timer.TimerStart(elev.doorOpenDuration_s)
-					setAllLights(elev)
-					elev.behaviour = DoorOpen
-				}
-			default:
-
-			}
-
-			//print elevator
+		case newFloor := <-ch_FloorArrival:
+			Fsm_OnFloorArrival(newFloor, elev)
 		
-		case DoorTimeOut := <- ch.DoorTimeOut:
-
-			switch elev.behaviour {
-			case EB_DoorOpen:
-				Action a = requests.Requests_nextAction(elev)
-				elev.dirn = a.dirn
-				elev.behaviour = a.behaviour
-
-				switch elev.behaviour {
-				case EB_DoorOpen:
-					timer.TimerStart(elev.config.doorOpenDuration_s)
-					elev = requests.Requests_clearAtCurrentFloor(elev)
-					setAllLights(elev)
-				case EB_Moving:
-				case EB_Idle:
-					elevio.SetDoorOpenLamp(0)
-					elevio.SetMotorDirection(elev.Dirn)
-				}
-			}
+		case <- ch_DoorTimeOut:
+			Fsm_OnDoorTimeout(elev)
+		
+		case obstruction := <-ch_Obstruction:
+			if (elev.Behaviour == elevator.EB_DoorOpen) && obstruction{
+				timer.TimerStart(elev.DoorOpenDuration_s) //er dette riktig oppførsel? er rtøtt
+			}	// endre det over når fikset time-modul
 		}
 	}
 }
-

@@ -29,7 +29,7 @@ type Elevator struct{
 	// legg til avalible-bit?
 	
 	//vet ikke om dette bør være i egen struct i go?
-	clearRequestVariant ClearRequestVariant
+	ClearRequestVariant ClearRequestVariant
 	DoorOpenDuration_s float64
 }
 
@@ -48,7 +48,7 @@ func InitElev() Elevator{
 		Dirn: 		elevio.MD_Stop,
 		Requests: 	requestMatrix,
 		Behaviour: 	EB_Idle,
-		clearRequestVariant: CV_InDirn,
+		ClearRequestVariant: CV_InDirn,
 		DoorOpenDuration_s: 0}
 }
 
