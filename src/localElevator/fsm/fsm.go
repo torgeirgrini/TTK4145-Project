@@ -48,6 +48,63 @@ func Fsm_OnRequestButtonPress(btn_floor int, btn_type elevio.ButtonType, elev el
 
 }
 
+func setAllLights(Elevator es) {
+	for floor := 0; floor < N_FLOORS; floor++ {
+        for btn := 0; btn < N_BUTTONS; btn++ {
+            elevio.SetButtonLamp(btn, floor, es.requests[floor][btn]);
+        }
+    }
+}
 
 
+func RunElevator (...) {
+
+	for {
+
+		select {
+		case RequestButtonPress := <-ch.RequestButtonPress:
+			//Eirik sin funksjon
+			
+		case FloorArrival := <-ch.FloorArrival:
+			//print elevator
+			elevio.SetFloorIndicator(elevator.floor)
+
+			switch elev.Behaviour{
+			case EB_Moving:
+				if requests_shouldStop(elevator) { //Have orders in floor
+					elevio.SetMotorDirection(MD_Stop)
+					elevio.SetDoorOpenLamp(1)
+					elev = requests_clearAtCurrentFloor(elev);
+					timer.TimerStart(elev.doorOpenDuration_s)
+					setAllLights(elev)
+					elev.behaviour = DoorOpen
+				}
+			default:
+
+			}
+
+			//print elevator
+		
+		case DoorTimeOut := <- ch.DoorTimeOut:
+
+			switch elev.behaviour {
+			case EB_DoorOpen:
+				Action a = requests.Requests_nextAction(elev)
+				elev.dirn = a.dirn
+				elev.behaviour = a.behaviour
+
+				switch elev.behaviour {
+				case EB_DoorOpen:
+					timer.TimerStart(elev.config.doorOpenDuration_s)
+					elev = requests.Requests_clearAtCurrentFloor(elev)
+					setAllLights(elev)
+				case EB_Moving:
+				case EB_Idle:
+					elevio.SetDoorOpenLamp(0)
+					elevio.SetMotorDirection(elev.Dirn)
+				}
+			}
+		}
+	}
+}
 
