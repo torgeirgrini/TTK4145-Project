@@ -24,35 +24,32 @@ const(
 type Elevator struct{
 	Floor int
 	Dirn elevio.MotorDirection
-	Requests [][]int //bool isteden(?), 
+	Requests [][]bool
 	Behaviour ElevatorBehaviour
 	// legg til avalible-bit?
-	// vet ikke om vi trenger struct i struct (under)?
-	// vet heller ikke helt hvordan å implementere i go, kommenterer ut foreløpig
-	/*
-	Config struct{
-		clearRequestVariant ClearRequestVariant
-		DoorOpenDuration_s float64
-	}
-	*/
+	
+	//vet ikke om dette bør være i egen struct i go?
+	clearRequestVariant ClearRequestVariant
+	DoorOpenDuration_s float64
 }
 
 // opprett ordrematrise, sett alle ordre til 0, behaviour til idle,
 // floor til det nederste og motor til stans:
-func initElev() Elevator{
-	requestMatrix := make([][]int, 0) //init tom 2d-slice
+func InitElev() Elevator{
+	requestMatrix := make([][]bool, 0) //init tom 2d-slice
 	for floor := 0; floor < config.NumFloors; floor++ {
-		requestMatrix[floor] = make([]int, config.NumButtons)
+		requestMatrix[floor] = make([]bool, config.NumButtons)
 		for button := range requestMatrix[floor]{
-			requestMatrix[floor][button] = 0
+			requestMatrix[floor][button] = false
 		}
 	}
 	return Elevator{
 		Floor: 		0,
 		Dirn: 		elevio.MD_Stop,
 		Requests: 	requestMatrix,
-		Behaviour: 	EB_Idle}
-		//timer shit når funnet ut av det
+		Behaviour: 	EB_Idle,
+		clearRequestVariant: CV_InDirn,
+		DoorOpenDuration_s: 0}
 }
 
 
