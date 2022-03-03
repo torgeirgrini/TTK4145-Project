@@ -105,7 +105,7 @@ func Requests_shouldClearImmediately(e elevator.Elevator, btn_floor int, btn_typ
 	}
 }
 
-func Requests_clearAtCurrentFloor(e elevator.Elevator) elevator.Elevator {
+func Requests_clearAtCurrentFloor(e *elevator.Elevator) {
 	switch e.ClearRequestVariant {
 	case elevator.CV_All:
 		for btn := 0; btn < config.NumButtons; btn++ {
@@ -115,12 +115,12 @@ func Requests_clearAtCurrentFloor(e elevator.Elevator) elevator.Elevator {
 		e.Requests[e.Floor][elevio.BT_Cab] = false
 		switch e.Dirn {
 		case elevio.MD_Up:
-			if (requests_above(e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallUp]) {
+			if (requests_above(*e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallUp]) {
 				e.Requests[e.Floor][elevio.BT_HallDown] = false
 			}
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
 		case elevio.MD_Down:
-			if (requests_below(e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallDown]) {
+			if (requests_below(*e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallDown]) {
 				e.Requests[e.Floor][elevio.BT_HallUp] = false
 			}
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
@@ -132,5 +132,4 @@ func Requests_clearAtCurrentFloor(e elevator.Elevator) elevator.Elevator {
 	default:
 		break
 	}
-	return e
 }
