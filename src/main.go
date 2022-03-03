@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Project/config"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
 	"Project/localElevator/timer"
@@ -9,12 +10,7 @@ import (
 
 func main() {
 
-	numFloors := 4
-
-	elevio.Init("localhost:15657", numFloors)
-
-	var d elevio.MotorDirection = elevio.MD_Up
-	elevio.SetMotorDirection(d)
+	elevio.Init("localhost:15657", config.NumFloors)
 
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
@@ -33,40 +29,4 @@ func main() {
 	//run FSM:
 	fsm.RunElevator(drv_buttons, drv_floors, ch_timerTimedOut, drv_obstr)
 
-	//eksempelkode:::::
-
-	/*
-		for {
-			select {
-			case a := <-drv_buttons:
-				fmt.Printf("%+v\n", a)
-				elevio.SetButtonLamp(a.Button, a.Floor, true)
-
-			case a := <-drv_floors:
-				fmt.Printf("%+v\n", a)
-				if a == numFloors-1 {
-					d = elevio.MD_Down
-				} else if a == 0 {
-					d = elevio.MD_Up
-				}
-				elevio.SetMotorDirection(d)
-
-			case a := <-drv_obstr:
-				fmt.Printf("%+v\n", a)
-				if a {
-					elevio.SetMotorDirection(elevio.MD_Stop)
-				} else {
-					elevio.SetMotorDirection(d)
-				}
-
-			case a := <-drv_stop:
-				fmt.Printf("%+v\n", a)
-				for f := 0; f < numFloors; f++ {
-					for b := elevio.Buth_timerUpdateState <- truetonType(0); b < 3; b++ {
-						elevio.SetButtonLamp(b, f, false)
-					}
-				}
-			}
-		}
-	*/
 }

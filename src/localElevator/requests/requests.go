@@ -14,7 +14,7 @@ type Action struct {
 func requests_above(e elevator.Elevator) int {
 	for f := e.Floor; f < config.NumFloors; f++ {
 		for btn := 0; btn < config.NumButtons; btn++ {
-			if e.Requests[f][btn] != false {
+			if e.Requests[f][btn] {
 				return 1
 			}
 		}
@@ -25,7 +25,7 @@ func requests_above(e elevator.Elevator) int {
 func requests_below(e elevator.Elevator) int {
 	for f := 0; f < e.Floor; f++ {
 		for btn := 0; btn < config.NumButtons; btn++ {
-			if e.Requests[f][btn] != false {
+			if e.Requests[f][btn] {
 				return 1
 			}
 		}
@@ -34,8 +34,8 @@ func requests_below(e elevator.Elevator) int {
 }
 
 func requests_here(e elevator.Elevator) int {
-	for btn := 0; btn < config.NumFloors; btn++ {
-		if e.Requests[e.Floor][btn] != false {
+	for btn := 0; btn < config.NumButtons; btn++ {
+		if e.Requests[e.Floor][btn] {
 			return 1
 		}
 	}
@@ -82,9 +82,9 @@ func Requests_nextAction(e elevator.Elevator) Action {
 func Requests_shouldStop(e elevator.Elevator) bool {
 	switch e.Dirn {
 	case elevio.MD_Down:
-		return (e.Requests[e.Floor][elevio.BT_HallDown] != false) || (e.Requests[e.Floor][elevio.BT_Cab] != false) || (requests_below(e) == 0)
+		return (e.Requests[e.Floor][elevio.BT_HallDown]) || (e.Requests[e.Floor][elevio.BT_Cab]) || (requests_below(e) == 0)
 	case elevio.MD_Up:
-		return (e.Requests[e.Floor][elevio.BT_HallUp] != false) || (e.Requests[e.Floor][elevio.BT_Cab] != false) || (requests_above(e) == 0)
+		return (e.Requests[e.Floor][elevio.BT_HallUp]) || (e.Requests[e.Floor][elevio.BT_Cab]) || (requests_above(e) == 0)
 	default:
 		return true
 	}
@@ -115,24 +115,20 @@ func Requests_clearAtCurrentFloor(e elevator.Elevator) elevator.Elevator {
 		e.Requests[e.Floor][elevio.BT_Cab] = false
 		switch e.Dirn {
 		case elevio.MD_Up:
-			if (requests_above(e) == 0) && (e.Requests[e.Floor][elevio.BT_HallUp] == false) {
+			if (requests_above(e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallUp]) {
 				e.Requests[e.Floor][elevio.BT_HallDown] = false
 			}
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
-			break
 		case elevio.MD_Down:
-			if (requests_below(e) == 0) && (e.Requests[e.Floor][elevio.BT_HallDown] == false) {
+			if (requests_below(e) == 0) && (!e.Requests[e.Floor][elevio.BT_HallDown]) {
 				e.Requests[e.Floor][elevio.BT_HallUp] = false
 			}
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
-			break
 		case elevio.MD_Stop:
 		default:
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
-			break
 		}
-		break
 	default:
 		break
 	}

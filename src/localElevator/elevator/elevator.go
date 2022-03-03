@@ -3,6 +3,7 @@ package elevator
 import (
 	"Project/config"
 	"Project/localElevator/elevio"
+	"fmt"
 )
 
 type ElevatorBehaviour int
@@ -36,7 +37,8 @@ type Elevator struct {
 // opprett ordrematrise, sett alle ordre til 0, behaviour til idle,
 // floor til det nederste og motor til stans:
 func InitElev() Elevator {
-	requestMatrix := make([][]bool, 0) //init tom 2d-slice
+	elevio.SetMotorDirection(elevio.MD_Stop)
+	requestMatrix := make([][]bool, config.NumFloors) //init tom 2d-slice
 	for floor := 0; floor < config.NumFloors; floor++ {
 		requestMatrix[floor] = make([]bool, config.NumButtons)
 		for button := range requestMatrix[floor] {
@@ -49,5 +51,16 @@ func InitElev() Elevator {
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
 		ClearRequestVariant: CV_InDirn,
-		DoorOpenDuration_s:  0}
+		DoorOpenDuration_s:  3}
+}
+
+func PrintElevator(elev Elevator) {
+	fmt.Println("Elevator: ")
+	fmt.Println("	Current Floor: ", elev.Floor)
+	fmt.Println("	Current Direction: ", elev.Dirn)
+	fmt.Println("	Current Request Matrix: ")
+	for floor := config.NumFloors - 1; floor > -1; floor-- {
+		fmt.Println("		Orders at floor", floor, ": ", elev.Requests[floor])
+	}
+	fmt.Println("	Current Behaviour: ", elev.Behaviour)
 }
