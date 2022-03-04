@@ -9,12 +9,11 @@ import (
 type ElevatorBehaviour int
 
 const (
-	EB_Idle ElevatorBehaviour = iota //iota betyr auto 1,2,3,... osv oppover, standard
+	EB_Idle ElevatorBehaviour = iota 
 	EB_DoorOpen
 	EB_Moving
 )
 
-//tror kanskje det er denne greia her som er ny for i år?:
 type ClearRequestVariant int
 
 const (
@@ -29,16 +28,14 @@ type Elevator struct {
 	Behaviour ElevatorBehaviour
 	// legg til avalible-bit?
 
-	//vet ikke om dette bør være i egen struct i go?
+	//vet ikke om dette bør være i egen struct i go? - HØR MED STUD.ASSER
 	ClearRequestVariant ClearRequestVariant
 	DoorOpenDuration_s  float64
 }
 
-// opprett ordrematrise, sett alle ordre til 0, behaviour til idle,
-// floor til det nederste og motor til stans:
 func InitElev() Elevator {
 	elevio.SetMotorDirection(elevio.MD_Stop)
-	requestMatrix := make([][]bool, config.NumFloors) //init tom 2d-slice
+	requestMatrix := make([][]bool, config.NumFloors) //init empty 2d-slice
 	for floor := 0; floor < config.NumFloors; floor++ {
 		requestMatrix[floor] = make([]bool, config.NumButtons)
 		for button := range requestMatrix[floor] {
