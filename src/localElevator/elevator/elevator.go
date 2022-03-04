@@ -48,7 +48,7 @@ func InitElev() Elevator {
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
 		ClearRequestVariant: CV_InDirn,
-		DoorOpenDuration_s:  3}
+		DoorOpenDuration_s:  config.DoorOpenDuration}
 }
 
 func PrintElevator(elev Elevator) {

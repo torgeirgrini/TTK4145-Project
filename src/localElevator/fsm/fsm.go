@@ -48,7 +48,7 @@ func Fsm_OnFloorArrival(newFloor int, e *elevator.Elevator) {
 
 	switch e.Behaviour {
 	case elevator.EB_Moving:
-		if requests.Requests_shouldStop(*e) { 
+		if requests.Requests_shouldStop(*e) {
 			elevio.SetMotorDirection(elevio.MD_Stop)
 			elevio.SetDoorOpenLamp(true)
 			requests.Requests_clearAtCurrentFloor(e)
@@ -92,7 +92,7 @@ func Fsm_OnInitBetweenFloors(e *elevator.Elevator) {
 func SetAllLights(elev elevator.Elevator) {
 	for floor := 0; floor < config.NumFloors; floor++ {
 		for btn := 0; btn < config.NumButtons; btn++ {
-			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn]) 
+			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn])
 		}
 	}
 }
@@ -101,6 +101,7 @@ func Fsm_OnInitArrivedAtFloor(e *elevator.Elevator, currentFloor int) {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.Dirn = elevio.MD_Stop
 	e.Behaviour = elevator.EB_Idle
+	e.Floor = currentFloor
 }
 
 func RunElevator(
@@ -142,12 +143,14 @@ func RunElevator(
 			elevator.PrintElevator(elev)
 
 		case <-ch_DoorTimeOut:
+			fmt.Println("Timer timed out")
 			Fsm_OnDoorTimeout(e)
+			elevator.PrintElevator(elev)
 
 		case obstruction := <-ch_Obstruction:
 			if (elev.Behaviour == elevator.EB_DoorOpen) && obstruction { //restart timer if obstruction while door open
 				timer.TimerStart(elev.DoorOpenDuration_s)
-			} 
+			}
 		}
 	}
 }
