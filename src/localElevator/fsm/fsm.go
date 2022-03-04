@@ -48,7 +48,7 @@ func Fsm_OnFloorArrival(newFloor int, e *elevator.Elevator) {
 
 	switch e.Behaviour {
 	case elevator.EB_Moving:
-		if requests.Requests_shouldStop(*e) { //Have orders in floor
+		if requests.Requests_shouldStop(*e) { 
 			elevio.SetMotorDirection(elevio.MD_Stop)
 			elevio.SetDoorOpenLamp(true)
 			requests.Requests_clearAtCurrentFloor(e)
@@ -75,7 +75,7 @@ func Fsm_OnDoorTimeout(e *elevator.Elevator) {
 			requests.Requests_clearAtCurrentFloor(e)
 			SetAllLights(*e)
 		case elevator.EB_Moving:
-			//skal det være noe her? føler vi kan få udefinert oppførsel eller noe
+			//handling?
 		case elevator.EB_Idle:
 			elevio.SetDoorOpenLamp(false)
 			elevio.SetMotorDirection(e.Dirn)
@@ -92,7 +92,7 @@ func Fsm_OnInitBetweenFloors(e *elevator.Elevator) {
 func SetAllLights(elev elevator.Elevator) {
 	for floor := 0; floor < config.NumFloors; floor++ {
 		for btn := 0; btn < config.NumButtons; btn++ {
-			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn]) //vet ikke om denne kan ta inn int som første param
+			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn]) 
 		}
 	}
 }
@@ -104,19 +104,17 @@ func Fsm_OnInitArrivedAtFloor(e *elevator.Elevator, currentFloor int) {
 }
 
 func RunElevator(
-
 	ch_RequestButtonPress chan elevio.ButtonEvent,
 	ch_FloorArrival chan int,
 	ch_DoorTimeOut chan bool,
 	ch_Obstruction chan bool) {
 
+	//Initialize
 	elev := elevator.InitElev()
 	e := &elev
 	SetAllLights(elev)
 
 	uninitialized := true
-
-	//Initialsing
 	for uninitialized {
 		select {
 		case currentFloor := <-ch_FloorArrival:
@@ -147,9 +145,9 @@ func RunElevator(
 			Fsm_OnDoorTimeout(e)
 
 		case obstruction := <-ch_Obstruction:
-			if (elev.Behaviour == elevator.EB_DoorOpen) && obstruction {
-				timer.TimerStart(elev.DoorOpenDuration_s) //er dette riktig oppførsel? er rtøtt
-			} // endre det over når fikset time-modul
+			if (elev.Behaviour == elevator.EB_DoorOpen) && obstruction { //restart timer if obstruction while door open
+				timer.TimerStart(elev.DoorOpenDuration_s)
+			} 
 		}
 	}
 }
