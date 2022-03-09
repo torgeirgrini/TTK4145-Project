@@ -12,7 +12,7 @@ type Action struct {
 }
 
 func requests_above(e elevator.Elevator) bool {
-	for f := e.Floor; f < config.NumFloors; f++ {
+	for f := e.Floor + 1; f < config.NumFloors; f++ {
 		for btn := 0; btn < config.NumButtons; btn++ {
 			if e.Requests[f][btn] {
 				return true
@@ -125,6 +125,7 @@ func Requests_clearAtCurrentFloor(e *elevator.Elevator) {
 			}
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
 		case elevio.MD_Stop:
+			fallthrough
 		default:
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
 			e.Requests[e.Floor][elevio.BT_HallDown] = false

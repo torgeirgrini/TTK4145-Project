@@ -4,12 +4,13 @@ import (
 	"Project/config"
 	"Project/localElevator/elevio"
 	"fmt"
+	"time"
 )
 
 type ElevatorBehaviour int
 
 const (
-	EB_Idle ElevatorBehaviour = iota 
+	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
 )
@@ -26,6 +27,7 @@ type Elevator struct {
 	Dirn      elevio.MotorDirection
 	Requests  [][]bool
 	Behaviour ElevatorBehaviour
+	DoorTimer *time.Timer
 	// legg til avalible-bit?
 
 	//vet ikke om dette bør være i egen struct i go? - HØR MED STUD.ASSER
@@ -35,20 +37,23 @@ type Elevator struct {
 
 func InitElev() Elevator {
 	elevio.SetMotorDirection(elevio.MD_Stop)
-	requestMatrix := make([][]bool, config.NumFloors) //init empty 2d-slice
+	requestMatrix := make([][]bool, config.NumFloors) 
 	for floor := 0; floor < config.NumFloors; floor++ {
 		requestMatrix[floor] = make([]bool, config.NumButtons)
 		for button := range requestMatrix[floor] {
 			requestMatrix[floor][button] = false
 		}
 	}
+	doorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
+	doorTimer.Stop()
 	return Elevator{
 		Floor:               0,
 		Dirn:                elevio.MD_Stop,
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
 		ClearRequestVariant: CV_InDirn,
-		DoorOpenDuration_s:  config.DoorOpenDuration}
+		DoorOpenDuration_s:  config.DoorOpenDuration,
+		DoorTimer:           doorTimer}
 }
 
 func PrintElevator(elev Elevator) {
