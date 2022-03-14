@@ -1,6 +1,7 @@
 package network
 
 import (
+	"Project/localElevator/elevator"
 	"Project/network/bcast"
 	"Project/network/localip"
 	"Project/network/peers"
@@ -18,7 +19,9 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func Network() {
+func Network(
+	ch_txEsm chan map[string]elevator.Elevator,
+	ch_rxEsm chan map[string]elevator.Elevator) {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
