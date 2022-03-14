@@ -60,7 +60,7 @@ func Network(
 
 	// The example message. We just send one of these every second.
 	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
+		helloMsg := HelloMsg{"hei fra " + id, 0}
 		for {
 			helloMsg.Iter++
 			helloTx <- helloMsg
