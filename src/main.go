@@ -4,6 +4,7 @@ import (
 	"Project/config"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
+	"Project/network"
 )
 
 func main() {
@@ -18,11 +19,16 @@ func main() {
 	go elevio.PollButtons(drv_buttons)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollObstructionSwitch(drv_obstr)
+
 	//go elevio.PollStopButton(drv_stop)
 
 	//run FSM:
-	fsm.RunElevator(drv_buttons, drv_floors, drv_obstr)
+	go fsm.RunElevator(drv_buttons, drv_floors, drv_obstr)
 
+	go network.Network()
+
+	ch_wait := make(chan bool)
+	<-ch_wait
 }
 
 /* MAC Adress, sug en feit en

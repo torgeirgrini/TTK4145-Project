@@ -4,7 +4,7 @@ func Distributor() {
 	for {
 		select {
 
-		// case newOrder := <-ch_RequestButtonPress:
+		// case newOrder := <-ch_newLocalOrder:
 
 		// case newFloor := <-ch_FloorArrival:
 

@@ -106,7 +106,7 @@ func Fsm_OnInitArrivedAtFloor(e *elevator.Elevator, currentFloor int) {
 }
 
 func RunElevator(
-	ch_RequestButtonPress chan elevio.ButtonEvent,
+	ch_newLocalOrder chan elevio.ButtonEvent,
 	ch_FloorArrival chan int,
 	ch_Obstruction chan bool) { //husk å definer read/write med piler på channelsene, se forelesning
 
@@ -130,7 +130,7 @@ func RunElevator(
 	for {
 
 		select {
-		case newOrder := <-ch_RequestButtonPress:
+		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("Order {Floor, Type}:", newOrder)
 			Fsm_OnRequestButtonPress(newOrder.Floor, newOrder.Button, e)
 			elevator.PrintElevator(elev)
