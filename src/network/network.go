@@ -1,6 +1,7 @@
 package network
 
 import (
+	"Project/config"
 	"Project/localElevator/elevator"
 	"Project/network/bcast"
 	"Project/network/localip"
@@ -8,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 )
 
 // We define some custom struct to send over the network.
@@ -20,11 +20,13 @@ type HelloMsg struct {
 }
 
 func Network(
-	ch_txEsm chan map[string]elevator.Elevator,
-	ch_rxEsm chan map[string]elevator.Elevator) {
+	id string,
+	ch_txEsm chan<- map[string]elevator.Elevator,
+	ch_rxEsm <-chan map[string]elevator.Elevator,
+	ch_localElevatorStruct <-chan elevator.Elevator) {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
-	var id string
+	//var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
 
@@ -46,25 +48,27 @@ func Network(
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
+	go peers.Transmitter(config.PortPeers, id, peerTxEnable)
+	go peers.Receiver(config.PortPeers, peerUpdateCh)
 
 	// We make channels for sending and receiving our custom data types
-	helloTx := make(chan HelloMsg)
-	helloRx := make(chan HelloMsg)
+	helloTx := make(chan elevator.Elevator)
+	helloRx := make(chan elevator.Elevator)
 	// ... and start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, helloTx)
-	go bcast.Receiver(16569, helloRx)
+	go bcast.Transmitter(config.PortBroadcast, helloTx)
+	go bcast.Receiver(config.PortBroadcast, helloRx)
 
 	// The example message. We just send one of these every second.
 	go func() {
-		helloMsg := HelloMsg{"hei fra " + id, 0}
+
 		for {
-			helloMsg.Iter++
+			elev := <-ch_localElevatorStruct
+			helloMsg := elev
+			//helloMsg := HelloMsg{"Elevator floor: " + strconv.Itoa(elev.Floor) + " and id is " + id, 0}
+			//helloMsg.Iter++
 			helloTx <- helloMsg
-			time.Sleep(1 * time.Second)
 		}
 	}()
 
