@@ -107,8 +107,8 @@ func Fsm_OnInitArrivedAtFloor(e *elevator.Elevator, currentFloor int) {
 
 func RunElevator(
 	ch_RequestButtonPress  chan elevio.ButtonEvent,
-	ch_FloorArrival chan int,
-	ch_Obstruction chan bool) { //husk å definer read/write med piler på channelsene, se forelesning
+	ch_FloorArrival        chan int,
+	ch_Obstruction         chan bool) { //husk å definer read/write med piler på channelsene, se forelesning
 
 	//Initialize
 	elev := elevator.InitElev()

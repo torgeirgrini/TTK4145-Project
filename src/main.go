@@ -11,8 +11,8 @@ func main() {
 	elevio.Init("localhost:15657", config.NumFloors)
 
 	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
+	drv_floors  := make(chan int)
+	drv_obstr  :=  make(chan bool)
 	//drv_stop := make(chan bool)
 
 	go elevio.PollButtons(drv_buttons)
