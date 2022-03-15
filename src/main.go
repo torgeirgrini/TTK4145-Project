@@ -2,27 +2,42 @@ package main
 
 import (
 	"Project/config"
+	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
+	"Project/network"
 )
 
 func main() {
 
 	elevio.Init("localhost:15657", config.NumFloors)
 
-	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors  := make(chan int)
-	drv_obstr  :=  make(chan bool)
-	//drv_stop := make(chan bool)
+    //Hardware channels
+	ch_drv_buttons := make(chan elevio.ButtonEvent)
+	ch_drv_floors := make(chan int)
+	ch_drv_obstr := make(chan bool)
 
-	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
-	//go elevio.PollStopButton(drv_stop)
+    //Assigner channels
+    //ch_elevatorSystemMap := make(chan map[string]elevator.Elevator)
 
-	//run FSM:
-	fsm.RunElevator(drv_buttons, drv_floors, drv_obstr)
+    //Network channels
+    ch_txEsm := make(chan map[string]elevator.Elevator)
+    ch_rxEsm := make(chan map[string]elevator.Elevator)
 
+    //Local elevator channels
+    //ch_newLocalState = make(chan elevator.Elevator)
+    //ch_localOrder = make(chan elevator.Elevator)
+    
+	go elevio.PollButtons(ch_drv_buttons)
+	go elevio.PollFloorSensor(ch_drv_floors)
+	go elevio.PollObstructionSwitch(ch_drv_obstr)
+
+	go fsm.RunElevator(ch_drv_buttons, ch_drv_floors, ch_drv_obstr)
+
+	go network.Network(ch_txEsm, ch_rxEsm)
+
+	ch_wait := make(chan bool)
+	<-ch_wait
 }
 
 /* MAC Adress, sug en feit en

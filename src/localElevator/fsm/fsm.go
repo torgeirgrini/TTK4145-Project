@@ -130,7 +130,7 @@ func RunElevator(
 	for {
 
 		select {
-		case newOrder := <-ch_RequestButtonPress:
+		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("Order {Floor, Type}:", newOrder)
 			Fsm_OnRequestButtonPress(newOrder.Floor, newOrder.Button, e)
 			elevator.PrintElevator(elev)
