@@ -119,16 +119,20 @@ func RunElevator(
 	elevio.SetDoorOpenLamp(false)
 
 	Fsm_OnInitBetweenFloors(e)
+	ch_localElevatorStruct <- *e
 
 	currentFloor := <-ch_FloorArrival
 	fmt.Println("Floor:", currentFloor)
 	Fsm_OnInitArrivedAtFloor(e, currentFloor)
+	ch_localElevatorStruct <- *e
 
 	elevator.PrintElevator(elev)
-	//Initialize Timer
+	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
+	RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
+	ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
 	for {
@@ -153,6 +157,7 @@ func RunElevator(
 				action := requests.Requests_nextAction(*e)
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
+				ch_localElevatorStruct <- *e
 				switch action.Behaviour {
 				case elevator.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
@@ -167,7 +172,6 @@ func RunElevator(
 				}
 			}
 			SetAllLights(*e)
-
 			elevator.PrintElevator(elev)
 
 		case newFloor := <-ch_FloorArrival:
@@ -185,6 +189,7 @@ func RunElevator(
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 					SetAllLights(*e)
 					e.Behaviour = elevator.EB_DoorOpen
+					ch_localElevatorStruct <- *e
 				}
 
 			default:
@@ -192,7 +197,6 @@ func RunElevator(
 			}
 
 			elevator.PrintElevator(elev)
-			ch_localElevatorStruct <- elev
 
 		case <-ch_doorTimer:
 			if !obstruction {
@@ -203,7 +207,8 @@ func RunElevator(
 					action := requests.Requests_nextAction(*e)
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
-
+					ch_localElevatorStruct <- *e
+					
 					switch e.Behaviour {
 					case elevator.EB_DoorOpen:
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
@@ -224,6 +229,10 @@ func RunElevator(
 			if !obstruction {
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 			}
+
+		case <-ch_RefreshStateTimer:
+			ch_localElevatorStruct <- *e
+			RefreshStateTimer.Reset(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
 		}
 	}
 }
