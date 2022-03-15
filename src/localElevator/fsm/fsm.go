@@ -127,10 +127,12 @@ func RunElevator(
 	ch_localElevatorStruct <- *e
 
 	elevator.PrintElevator(elev)
-	//Initialize Timer
+	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
+	RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
+	ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
 	for {
@@ -195,7 +197,6 @@ func RunElevator(
 			}
 
 			elevator.PrintElevator(elev)
-			ch_localElevatorStruct <- elev
 
 		case <-ch_doorTimer:
 			if !obstruction {
@@ -228,6 +229,10 @@ func RunElevator(
 			if !obstruction {
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 			}
+
+		case <-ch_RefreshStateTimer:
+			ch_localElevatorStruct <- *e
+			RefreshStateTimer.Reset(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
 		}
 	}
 }
