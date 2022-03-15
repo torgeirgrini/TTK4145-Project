@@ -38,6 +38,8 @@ func main() {
 	go fsm.RunElevator(ch_drv_buttons, ch_drv_floors, ch_drv_obstr, ch_localElevatorStruct)
 
     go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct)
+
+    
 	ch_wait := make(chan bool)
 	<-ch_wait
 }

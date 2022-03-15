@@ -35,7 +35,16 @@ The pairs of boolean hall requests are ordered `[[up-0, down-0], [up-1, down-1],
 
 
 ### Example JSON:
+unc Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
+	var buf [1024]byte
+	var p PeerUpdate
+	lastSeen := make(map[string]time.Time)
+
+	conn := conn.DialBroadcastUDP(port)
+
+	for {
+		updated := false
 Input:
 ```
 {
