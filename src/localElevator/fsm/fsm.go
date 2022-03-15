@@ -119,10 +119,12 @@ func RunElevator(
 	elevio.SetDoorOpenLamp(false)
 
 	Fsm_OnInitBetweenFloors(e)
+	ch_localElevatorStruct <- *e
 
 	currentFloor := <-ch_FloorArrival
 	fmt.Println("Floor:", currentFloor)
 	Fsm_OnInitArrivedAtFloor(e, currentFloor)
+	ch_localElevatorStruct <- *e
 
 	elevator.PrintElevator(elev)
 	//Initialize Timer
@@ -153,6 +155,7 @@ func RunElevator(
 				action := requests.Requests_nextAction(*e)
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
+				ch_localElevatorStruct <- *e
 				switch action.Behaviour {
 				case elevator.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
@@ -167,7 +170,6 @@ func RunElevator(
 				}
 			}
 			SetAllLights(*e)
-
 			elevator.PrintElevator(elev)
 
 		case newFloor := <-ch_FloorArrival:
@@ -185,6 +187,7 @@ func RunElevator(
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 					SetAllLights(*e)
 					e.Behaviour = elevator.EB_DoorOpen
+					ch_localElevatorStruct <- *e
 				}
 
 			default:
@@ -203,7 +206,8 @@ func RunElevator(
 					action := requests.Requests_nextAction(*e)
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
-
+					ch_localElevatorStruct <- *e
+					
 					switch e.Behaviour {
 					case elevator.EB_DoorOpen:
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
