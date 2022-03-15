@@ -2,6 +2,7 @@ package main
 
 import (
 	"Project/config"
+	distributor "Project/distribution"
 	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
@@ -41,6 +42,8 @@ func main() {
 
     go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct,ch_peerTxEnable)
 
+
+	go distributor.Distributor(ch_drv_buttons)
 
 	ch_wait := make(chan bool)
 	<-ch_wait
