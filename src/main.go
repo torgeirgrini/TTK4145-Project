@@ -31,15 +31,17 @@ func main() {
 	//ch_newLocalState = make(chan elevator.Elevator)
 	//ch_localOrder = make(chan elevator.Elevator)
 
+    ch_peerTxEnable := make(chan bool)
+
 	go elevio.PollButtons(ch_drv_buttons)
 	go elevio.PollFloorSensor(ch_drv_floors)
 	go elevio.PollObstructionSwitch(ch_drv_obstr)
 
 	go fsm.RunElevator(ch_drv_buttons, ch_drv_floors, ch_drv_obstr, ch_localElevatorStruct)
 
-    go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct)
+    go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct,ch_peerTxEnable)
 
-    
+
 	ch_wait := make(chan bool)
 	<-ch_wait
 }
