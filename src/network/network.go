@@ -86,7 +86,7 @@ func Network(
 	}
 }
 
-
+/*
 func () {
 
 	for {
@@ -101,4 +101,4 @@ func () {
 		// helloTx <- helloMsg
 		//ch_txEsm <- helloMsg
 	}
-}()
+}*/
