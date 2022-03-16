@@ -10,6 +10,16 @@ package assigner
 // // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
 // // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
+//Denne tar inn 
+	//Buttonpress fra hardware IO
+	//Den får periodisk inn ESM fra der den sendes periodisk (main akkurat nå)
+	//Peer list for å vite hvilke heiser som er på nettet og som kan ta ordre (Denne burde kanskje sendes periodisk)
+
+
+
+
+
+
 // type HRAElevState struct {
 // 	Behavior    string `json:"behaviour"`
 // 	Floor       int    `json:"floor"`

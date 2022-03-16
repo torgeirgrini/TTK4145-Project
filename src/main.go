@@ -2,17 +2,27 @@ package main
 
 import (
 	"Project/config"
-	distributor "Project/distribution"
 	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
 	"Project/network"
+	"Project/network/bcast"
+	"flag"
+	"fmt"
+	"reflect"
+	"time"
 )
+
+
 
 func main() {
 	var id string
+	var p string
+	flag.StringVar(&p, "p", "15657", "port to elevator server")
+	flag.StringVar(&id, "id", "", "id of this peer")
+	flag.Parse()
 
-	elevio.Init("localhost:15657", config.NumFloors)
+	elevio.Init("localhost:"+p, config.NumFloors)
 
 	//Hardware channels
 	ch_drv_buttons := make(chan elevio.ButtonEvent)
@@ -23,8 +33,9 @@ func main() {
 	//ch_elevatorSystemMap := make(chan map[string]elevator.Elevator)
 
 	//Network channels
-	ch_txEsm := make(chan map[string]elevator.Elevator)
-	ch_rxEsm := make(chan map[string]elevator.Elevator)
+	ch_txEsm := make(chan network.MessageStruct)
+	ch_rxEsm := make(chan network.MessageStruct)
+	allElevators := make(chan map[string]elevator.Elevator)
 
 	//Local elevator state channel
 	ch_localElevatorStruct := make(chan elevator.Elevator)
@@ -42,7 +53,23 @@ func main() {
 
 	go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct, ch_peerTxEnable)
 
-	go distributor.Distributor(ch_drv_buttons)
+	//go distributor.Distributor(ch_drv_buttons)
+
+	go network.States(id, ch_localElevatorStruct, allElevators)
+
+
+	//distributor kanskje?
+	for {
+		select {
+		case a := <-allElevators:
+			fmt.Printf("All elevator states:\n")
+			for id, e := range a {
+				fmt.Printf("  %s  :  %+v\n", id, e)
+			}
+			fmt.Printf("\n")
+			//Videresend til assigner sånn at den kan regne ut
+		}
+	}
 
 	ch_wait := make(chan bool)
 	<-ch_wait

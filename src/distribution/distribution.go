@@ -5,6 +5,13 @@ import (
 	"Project/localElevator/elevio"
 )
 
+
+//Denne har ansvar for ordrebestillinger, og håndtere ordretap osv
+//Sende ourOrders til localElevator
+//Send allOrders for å kunne sette lys overalt for eksempel
+
+
+/*
 func Distribution(id string,
 	ch_newLocalOrder <-chan elevio.ButtonType,
 	ch_NewElevatorStateMap chan<- map[string]elevator.Elevator,
@@ -33,7 +40,7 @@ func Distribution(id string,
 	}
 
 }
-
+*/
 func updateMapWithOrder(id string, elevatorSystemMap map[string]elevator.Elevator, newOrder elevio.ButtonType) map[string]elevator.Elevator {
 	//oppdater elevatorSystemMap[id]
 	return elevatorSystemMap
