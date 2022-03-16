@@ -48,8 +48,14 @@ func States(
 	tx := make(chan ElevatorStateMessage)
 	rx := make(chan ElevatorStateMessage)
 
+	ch_peerTxEnable := make(chan bool)
+	ch_peerUpdate := make(chan peers.PeerUpdate)
+
 	go bcast.Transmitter(config.PortBroadcast, tx)
 	go bcast.Receiver(config.PortBroadcast, rx)
+
+	go peers.Transmitter(config.PortPeers, localID, ch_peerTxEnable)
+	go peers.Receiver(config.PortPeers, ch_peerUpdate)
 
 	tick := time.NewTicker(config.TransmitInterval * time.Millisecond)
 
@@ -94,12 +100,19 @@ func States(
 				allElevators <- copy(elevators)
 				fmt.Println("ELEVATOR STATE MAP:", remote.ElevStateMap)
 			}
+		case peerUpdate := <-ch_peerUpdate:
+			fmt.Printf("Peer update:\n")
+			fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
+			fmt.Printf("  New:      %q\n", peerUpdate.New)
+			fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
+			//Må si ifra om at noen har kommet på/fallt av nettet
+			//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)
 		}
 	}
 }
 
 ////////////////////////////////////////////////
-
+/*
 func Receive(
 	ch_RxNewElevatorStateMap <-chan ElevatorStateMessage) {
 
@@ -142,3 +155,4 @@ func Network(
 		}
 	}
 }
+*/

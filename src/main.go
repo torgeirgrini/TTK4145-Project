@@ -28,8 +28,8 @@ func main() {
 	//ch_elevatorSystemMap := make(chan map[string]elevator.Elevator)
 
 	//Network channels
-	ch_txEsm := make(chan network.ElevatorStateMessage)
-	ch_rxEsm := make(chan network.ElevatorStateMessage)
+	//ch_txEsm := make(chan network.ElevatorStateMessage)
+	//ch_rxEsm := make(chan network.ElevatorStateMessage)
 	allElevators := make(chan map[string]elevator.Elevator)
 
 	//Local elevator state channel
@@ -38,7 +38,7 @@ func main() {
 	//ch_newLocalState = make(chan elevator.Elevator)
 	//ch_localOrder = make(chan elevator.Elevator)
 
-	ch_peerTxEnable := make(chan bool)
+	//ch_peerTxEnable := make(chan bool)
 
 	go elevio.PollButtons(ch_drv_buttons)
 	go elevio.PollFloorSensor(ch_drv_floors)
@@ -46,7 +46,7 @@ func main() {
 
 	go fsm.RunElevator(ch_drv_buttons, ch_drv_floors, ch_drv_obstr, ch_localElevatorStruct)
 
-	go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct, ch_peerTxEnable)
+	//go network.Network(id, ch_txEsm, ch_rxEsm, ch_localElevatorStruct, ch_peerTxEnable)
 
 	//go distributor.Distributor(ch_drv_buttons)
 
