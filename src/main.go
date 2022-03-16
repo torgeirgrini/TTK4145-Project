@@ -6,14 +6,9 @@ import (
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
 	"Project/network"
-	"Project/network/bcast"
 	"flag"
 	"fmt"
-	"reflect"
-	"time"
 )
-
-
 
 func main() {
 	var id string
@@ -33,8 +28,8 @@ func main() {
 	//ch_elevatorSystemMap := make(chan map[string]elevator.Elevator)
 
 	//Network channels
-	ch_txEsm := make(chan network.MessageStruct)
-	ch_rxEsm := make(chan network.MessageStruct)
+	ch_txEsm := make(chan network.ElevatorStateMessage)
+	ch_rxEsm := make(chan network.ElevatorStateMessage)
 	allElevators := make(chan map[string]elevator.Elevator)
 
 	//Local elevator state channel
@@ -56,7 +51,6 @@ func main() {
 	//go distributor.Distributor(ch_drv_buttons)
 
 	go network.States(id, ch_localElevatorStruct, allElevators)
-
 
 	//distributor kanskje?
 	for {

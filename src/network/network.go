@@ -3,7 +3,6 @@ package network
 import (
 	"Project/config"
 	"Project/localElevator/elevator"
-	"Project/localElevator/elevio"
 	"Project/network/bcast"
 	"Project/network/peers"
 	"fmt"
@@ -11,12 +10,11 @@ import (
 	"time"
 )
 
-
 type OrderState int
 
 const (
 	OS_NONE OrderState = iota
-	OS_UNCONFIRMED 
+	OS_UNCONFIRMED
 	OS_CONFIRMED
 	OS_COMPLETED
 )
@@ -24,14 +22,15 @@ const (
 type HallCall struct {
 	executerID string
 	assignerID string
-	orderState config.OrderState
+	orderState OrderState
 	ackList    [config.NumElevators]string
 }
 
 type ElevatorStateMessage struct {
-	ID string
-	E  elevator.Elevator
-	HallCalls [][]HallCall
+	ID           string
+	E            elevator.Elevator
+	HallCalls    [][]HallCall
+	ElevStateMap map[string]elevator.Elevator
 }
 
 func States(
@@ -40,10 +39,10 @@ func States(
 	allElevators chan<- map[string]elevator.Elevator,
 ) {
 
-/*TODO:
+	/*TODO:
 	Må oppdatere peer list
 	Må håndtere å sende/motta hallcalls
-*/
+	*/
 	elevators := make(map[string]elevator.Elevator)
 
 	tx := make(chan ElevatorStateMessage)
@@ -61,25 +60,25 @@ func States(
 		}
 		return copied
 	}
+	/*
+		//Gå gjennom alle elevators, ore alle hallcalls
+		Hallcalls := func (map[string]elevator.Elevator) [][]HallCall {
+			var HallCalls [][]HallCall
+			for j := 0; j < config.NumButtons-1; j++ {
+				for i, e := range elevators {
+					if e.Requests[i][j] {
 
-	//Gå gjennom alle elevators, ore alle hallcalls
-	Hallcalls := func (map[string]elevator.Elevator) [][]HallCall {
-		var HallCalls [][]HallCall
-		for j := 0; j < config.NumButtons-1; j++ {
-			for i, e := range elevators {
-				if e.Requests[i][j] {
+					}
+					}
 
+					HallCalls[i][j] = HallCalls[i][j] || e.Requests[i][j]
 				}
-				}	
-				
-				HallCalls[i][j] = HallCalls[i][j] || e.Requests[i][j]
 			}
-		}
-	
+	*/
+	Hallcalls := make([][]HallCall, config.NumFloors)
+	for i := range Hallcalls {
+		Hallcalls[i] = make([]HallCall, config.NumButtons-1)
 	}
-
-
-
 	for {
 		select {
 		case e := <-localElevator:
@@ -88,11 +87,12 @@ func States(
 				allElevators <- copy(elevators)
 			}
 		case <-tick.C:
-			tx <- ElevatorStateMessage{localID, elevators[localID], Hallcalls}
+			tx <- ElevatorStateMessage{localID, elevators[localID], Hallcalls, elevators}
 		case remote := <-rx:
 			if !reflect.DeepEqual(elevators[remote.ID], remote.E) {
 				elevators[remote.ID] = remote.E
 				allElevators <- copy(elevators)
+				fmt.Println("ELEVATOR STATE MAP:", remote.ElevStateMap)
 			}
 		}
 	}
@@ -101,15 +101,15 @@ func States(
 ////////////////////////////////////////////////
 
 func Receive(
-	ch_RxNewElevatorStateMap <-chan MessageStruct) {
+	ch_RxNewElevatorStateMap <-chan ElevatorStateMessage) {
 
 }
 
 //Kanskje dele opp i to funskjoner?
 func Network(
 	id string,
-	ch_TxNewElevatorStateMap chan MessageStruct,
-	ch_RxNewElevatorStateMap chan MessageStruct,
+	ch_TxNewElevatorStateMap chan ElevatorStateMessage,
+	ch_RxNewElevatorStateMap chan ElevatorStateMessage,
 	ch_newLocalState <-chan elevator.Elevator,
 	ch_peerTxEnable <-chan bool) {
 
