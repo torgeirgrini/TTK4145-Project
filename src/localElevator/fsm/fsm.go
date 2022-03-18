@@ -9,81 +9,6 @@ import (
 	"time"
 )
 
-/*
-func Fsm_OnRequestButtonPress(btn_floor int, btn_type elevio.ButtonType, e *elevator.Elevator) {
-	switch e.Behaviour {
-	case elevator.EB_DoorOpen:
-		if requests.Requests_shouldClearImmediately(*e, btn_floor, btn_type) {
-			DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-		} else {
-			e.Requests[btn_floor][int(btn_type)] = true
-		}
-
-	case elevator.EB_Moving:
-		e.Requests[btn_floor][int(btn_type)] = true
-
-	case elevator.EB_Idle:
-		e.Requests[btn_floor][int(btn_type)] = true
-		action := requests.Requests_nextAction(*e)
-		e.Dirn = action.Dirn
-		e.Behaviour = action.Behaviour
-		switch action.Behaviour {
-		case elevator.EB_DoorOpen:
-			elevio.SetDoorOpenLamp(true)
-			DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-			requests.Requests_clearAtCurrentFloor(e)
-
-		case elevator.EB_Moving:
-			elevio.SetMotorDirection(e.Dirn)
-
-		case elevator.EB_Idle:
-			break
-		}
-	}
-	SetAllLights(*e)
-}
-
-func Fsm_OnFloorArrival(newFloor int, e *elevator.Elevator) {
-	e.Floor = newFloor
-	elevio.SetFloorIndicator(e.Floor)
-
-	switch e.Behaviour {
-	case elevator.EB_Moving:
-		if requests.Requests_shouldStop(*e) {
-			elevio.SetMotorDirection(elevio.MD_Stop)
-			elevio.SetDoorOpenLamp(true)
-			requests.Requests_clearAtCurrentFloor(e)
-			DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-			SetAllLights(*e)
-			e.Behaviour = elevator.EB_DoorOpen
-		}
-
-	default:
-		break
-	}
-}
-
-func Fsm_OnDoorTimeout(e *elevator.Elevator) {
-	switch e.Behaviour {
-	case elevator.EB_DoorOpen:
-		action := requests.Requests_nextAction(*e)
-		e.Dirn = action.Dirn
-		e.Behaviour = action.Behaviour
-
-		switch e.Behaviour {
-		case elevator.EB_DoorOpen:
-			DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-			requests.Requests_clearAtCurrentFloor(e)
-			SetAllLights(*e)
-		case elevator.EB_Moving:
-			fallthrough
-		case elevator.EB_Idle:
-			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(e.Dirn)
-		}
-	}
-}*/
-
 func Fsm_OnInitBetweenFloors(e *elevator.Elevator) {
 	elevio.SetMotorDirection(elevio.MD_Down)
 	e.Dirn = elevio.MD_Down
@@ -140,7 +65,6 @@ func RunElevator(
 		select {
 		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("Order {Floor, Type}:", newOrder)
-			//Fsm_OnRequestButtonPress(newOrder.Floor, newOrder.Button, e)
 			switch e.Behaviour {
 			case elevator.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(*e, newOrder.Floor, newOrder.Button) {
@@ -176,7 +100,6 @@ func RunElevator(
 
 		case newFloor := <-ch_FloorArrival:
 			fmt.Println("Floor:", newFloor)
-			//Fsm_OnFloorArrival(newFloor, e)
 			e.Floor = newFloor
 			elevio.SetFloorIndicator(e.Floor)
 
@@ -201,14 +124,13 @@ func RunElevator(
 		case <-ch_doorTimer:
 			if !obstruction {
 				fmt.Println("Timer timed out")
-				//Fsm_OnDoorTimeout(e)
 				switch e.Behaviour {
 				case elevator.EB_DoorOpen:
 					action := requests.Requests_nextAction(*e)
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
 					ch_localElevatorStruct <- *e
-					
+
 					switch e.Behaviour {
 					case elevator.EB_DoorOpen:
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)

@@ -3,7 +3,6 @@ package distribution
 import (
 	"Project/config"
 	"Project/localElevator/elevator"
-	"Project/localElevator/elevio"
 	"Project/network/peers"
 	"fmt"
 	"reflect"
@@ -68,6 +67,14 @@ func Distribution(id string,
 }
 */
 
+func DeepCopy(elevators map[string]elevator.Elevator) map[string]elevator.Elevator {
+	copied := make(map[string]elevator.Elevator)
+	for i, e := range elevators {
+		copied[i] = e
+	}
+	return copied
+}
+
 func Distribution(
 	localID string,
 	localElevator <-chan elevator.Elevator,
@@ -80,28 +87,6 @@ func Distribution(
 
 	tick := time.NewTicker(config.TransmitInterval * time.Millisecond)
 
-	copy := func(map[string]elevator.Elevator) map[string]elevator.Elevator {
-		copied := make(map[string]elevator.Elevator)
-		for i, e := range elevators {
-			copied[i] = e
-		}
-		return copied
-	}
-	/*
-		//Gå gjennom alle elevators, ore alle hallcalls
-		Hallcalls := func (map[string]elevator.Elevator) [][]HallCall {
-			var HallCalls [][]HallCall
-			for j := 0; j < config.NumButtons-1; j++ {
-				for i, e := range elevators {
-					if e.Requests[i][j] {
-
-					}
-					}
-
-					HallCalls[i][j] = HallCalls[i][j] || e.Requests[i][j]
-				}
-			}
-	*/
 	Hallcalls := make([][]HallCall, config.NumFloors)
 	for i := range Hallcalls {
 		Hallcalls[i] = make([]HallCall, config.NumButtons-1)
@@ -111,16 +96,19 @@ func Distribution(
 		case e := <-localElevator:
 			if !reflect.DeepEqual(elevators[localID], e) {
 				elevators[localID] = e
-				allElevators <- copy(elevators)
+
+				allElevators <- DeepCopy(elevators)
+
 			}
 		case <-tick.C:
+
 			tx <- ElevatorStateMessage{localID, elevators[localID], Hallcalls, elevators}
+
 		case remote := <-rx:
 			if !reflect.DeepEqual(elevators[remote.ID], remote.LocalElevator) {
 				elevators[remote.ID] = remote.LocalElevator
-				allElevators <- copy(elevators)
+				allElevators <- DeepCopy(elevators)
 				fmt.Println("ELEVATOR STATE MAP:", remote.ElevStateMap)
-				fmt.Println("HALLCALLS TO ASSIGNER:", hallRequestsFromESM(remote.ElevStateMap))
 			}
 		case peerUpdate := <-ch_peerUpdate:
 			fmt.Printf("Peer update:\n")
@@ -129,38 +117,8 @@ func Distribution(
 			fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
 			//Må si ifra om at noen har kommet på/fallt av nettet
 			//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)
-		case a := <-allElevators:
-			fmt.Printf("All elevator states:\n")
-			for id, e := range a {
-				fmt.Printf("  %s  :  %+v\n", id, e)
-			}
-			fmt.Printf("\n")
-			//Videresend til assigner sånn at den kan regne ut
+
 		}
 	}
 }
 
-func updateMapWithOrder(id string, elevatorSystemMap map[string]elevator.Elevator, newOrder elevio.ButtonType) map[string]elevator.Elevator {
-	//oppdater elevatorSystemMap[id]
-	return elevatorSystemMap
-}
-
-func updateMapWithLocalElevator(id string, elevatorSystemMap map[string]elevator.Elevator, newLocalElevator elevator.Elevator) map[string]elevator.Elevator {
-	//oppdater elevatorSystemMap[id]
-	return elevatorSystemMap
-}
-
-func hallRequestsFromESM(allElevators map[string]elevator.Elevator) [][]bool {
-	//var HallCalls [][]HallCall
-	Hallcalls := make([][]bool, config.NumFloors)
-	for i := 0; i < config.NumFloors; i++ {
-		Hallcalls[i] = make([]bool, config.NumButtons-1)
-		for j := 0; j < config.NumButtons-1; j++ {
-			Hallcalls[i][j] = false
-			for _, e := range allElevators {
-				Hallcalls[i][j] = Hallcalls[i][j] || e.Requests[i][j]
-			}
-		}
-	}
-	return Hallcalls
-}
