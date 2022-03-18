@@ -1,11 +1,12 @@
 package network
+
 /*
 
 func Network(
 	id string,
 	ch_TxNewElevatorStateMap chan ElevatorStateMessage,
 	ch_RxNewElevatorStateMap chan ElevatorStateMessage,
-	ch_newLocalState <-chan elevator.Elevator,
+	ch_newLocalState <-chan types.Elevator,
 	ch_peerTxEnable <-chan bool) {
 
 	// Our id can be anything. Here we pass it on the command line, using

@@ -2,7 +2,9 @@ package assigner
 
 import (
 	"Project/config"
-	"Project/localElevator/elevator"
+	"Project/distribution"
+	"Project/localElevator/elevio"
+	"Project/types"
 	"fmt"
 )
 
@@ -14,29 +16,36 @@ import (
 //Den får periodisk inn ESM fra distributor(main akkurat nå)
 //Peer list for å vite hvilke heiser som er på nettet og som kan ta ordre (Denne burde kanskje sendes periodisk)
 
-func Assignment(allElevators <-chan map[string]elevator.Elevator) {
+func Assignment(ch_allElevators <-chan map[string]types.Elevator,
+	ch_newLocalOrder <-chan elevio.ButtonEvent,
+	ch_newOrderAssigned chan<- types.MsgToDistributor) {
+
+	elevators := make(map[string]types.Elevator)
+	btn_event := elevio.ButtonEvent{}
+
 	for {
 		select {
-		case a := <-allElevators:
-			fmt.Println("All elevator states:", a)
-			/*
-				HRAElevStateArray := make(map[string]HRAElevState)
-				for i,e := range(a) {
-					cabreq := make([]bool, config.NumFloors)
-					for j := 0; j < config.NumFloors; j++ {
-						cabreq[j] = e.Requests[j][elevio.BT_Cab]
-					}
-					HRAes := HRAElevState{e.Behaviour, e.Floor,e.Dirn,cabreq}
-					HRAElevStateArray[]
-				}
-				HallCalls := hallRequestsFromESM(a)
-				CostFnInput := HRAInput{HallCalls,}*/
+		case elevators = <-ch_allElevators:
+			fmt.Println("All elevator states:", elevators)
+
 			//Videresend til assigner sånn at den kan regne ut
+		case btn_event = <-ch_newLocalOrder:
+			//Here we need to calcilate the cost functin
+			//TEST START
+			_ = btn_event
+			assignedID := "id3"
+			OrderFloor := 2
+			OrderButton := elevio.BT_HallUp
+			Ordertype_test := elevio.ButtonEvent{OrderFloor, OrderButton}
+			elevators[assignedID].Requests[OrderFloor][OrderButton] = true
+			send_msg := types.MsgToDistributor{Ordertype_test, distribution.DeepCopy(elevators)}
+			ch_newOrderAssigned <- send_msg
+			//TEST END
 		}
 	}
 }
 
-func hallRequestsFromESM(allElevators map[string]elevator.Elevator) [][]bool {
+func HallRequestsFromESM(allElevators map[string]types.Elevator) [][]bool {
 	//var HallCalls [][]HallCall
 	Hallcalls := make([][]bool, config.NumFloors)
 	for i := 0; i < config.NumFloors; i++ {

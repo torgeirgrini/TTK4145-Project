@@ -19,8 +19,8 @@
 Kommandoer for å starte flere heiser og simulatorer
 
 simelevatorserver
-simelevatorserver --port 11111
-simelevatorserver --port 11112
+simelevatorserver --port 12121
+simelevatorserver --port 21212
 go run main.go --id id1
-go run main.go --id id2 -p 11111
-go run main.go --id id3 -p 11112
+go run main.go --id id2 -p 12121
+go run main.go --id id3 -p 21212
