@@ -2,7 +2,6 @@ package fsm
 
 import (
 	"Project/config"
-	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/requests"
 	"Project/types"
@@ -39,36 +38,37 @@ func RunElevator(
 	ch_localElevatorStruct chan<- types.Elevator) {
 
 	//Initialize
-	elev := elevator.InitElev()
-	e := &elev
-	SetAllLights(elev)
+	e := types.InitElev()
+	SetAllLights(e)
 	elevio.SetDoorOpenLamp(false)
+	elevio.SetMotorDirection(elevio.MD_Stop)
 
-	Fsm_OnInitBetweenFloors(e)
-	ch_localElevatorStruct <- *e
+	Fsm_OnInitBetweenFloors(&e)
+	ch_localElevatorStruct <- e
 
 	currentFloor := <-ch_FloorArrival
 	fmt.Println("Floor:", currentFloor)
-	Fsm_OnInitArrivedAtFloor(e, currentFloor)
-	ch_localElevatorStruct <- *e
+	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
+	ch_localElevatorStruct <- e
 
-	elevator.PrintElevator(elev)
 	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
-	RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
-	ch_RefreshStateTimer := RefreshStateTimer.C
+	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
+	// ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
 	for {
+		types.PrintElevator(e)
+		ch_localElevatorStruct <- types.Dup(e)
 
 		select {
 		case newOrder := <-ch_newAssignedOrder:
-			fmt.Println("Order {Floor, Type}:", newOrder)
+			fmt.Println("Order received: Order {Floor, Type}:", newOrder)
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
-				if requests.Requests_shouldClearImmediately(*e, newOrder.Floor, newOrder.Button) {
+				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
@@ -79,15 +79,14 @@ func RunElevator(
 
 			case types.EB_Idle:
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
-				action := requests.Requests_nextAction(*e)
+				action := requests.Requests_nextAction(e)
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
-				ch_localElevatorStruct <- *e
 				switch action.Behaviour {
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-					requests.Requests_clearAtCurrentFloor(e)
+					requests.Requests_clearAtCurrentFloor(&e)
 
 				case types.EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -96,8 +95,7 @@ func RunElevator(
 					break
 				}
 			}
-			SetAllLights(*e)
-			elevator.PrintElevator(elev)
+			SetAllLights(e)
 
 		case newFloor := <-ch_FloorArrival:
 			fmt.Println("Floor:", newFloor)
@@ -106,37 +104,33 @@ func RunElevator(
 
 			switch e.Behaviour {
 			case types.EB_Moving:
-				if requests.Requests_shouldStop(*e) {
+				if requests.Requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
-					requests.Requests_clearAtCurrentFloor(e)
+					requests.Requests_clearAtCurrentFloor(&e)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-					SetAllLights(*e)
+					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
-					ch_localElevatorStruct <- *e
 				}
 
 			default:
 				break
 			}
 
-			elevator.PrintElevator(elev)
-
 		case <-ch_doorTimer:
 			if !obstruction {
 				fmt.Println("Timer timed out")
 				switch e.Behaviour {
 				case types.EB_DoorOpen:
-					action := requests.Requests_nextAction(*e)
+					action := requests.Requests_nextAction(e)
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
-					ch_localElevatorStruct <- *e
 
 					switch e.Behaviour {
 					case types.EB_DoorOpen:
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
-						requests.Requests_clearAtCurrentFloor(e)
-						SetAllLights(*e)
+						requests.Requests_clearAtCurrentFloor(&e)
+						SetAllLights(e)
 					case types.EB_Moving:
 						fallthrough
 					case types.EB_Idle:
@@ -145,7 +139,6 @@ func RunElevator(
 					}
 				}
 
-				elevator.PrintElevator(elev)
 			}
 
 		case obstruction = <-ch_Obstruction:
@@ -153,9 +146,6 @@ func RunElevator(
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 			}
 
-		case <-ch_RefreshStateTimer:
-			ch_localElevatorStruct <- *e
-			RefreshStateTimer.Reset(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
 		}
 	}
 }

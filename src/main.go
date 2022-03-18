@@ -6,7 +6,6 @@ import (
 	"Project/distribution"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
-	"Project/network/bcast"
 	"Project/network/peers"
 	"Project/types"
 	"flag"
@@ -27,22 +26,16 @@ func main() {
 	ch_drv_obstr := make(chan bool)
 
 	//Assigner channels
-	allElevators := make(chan map[string]types.Elevator)
-	ch_orderAssigned := make(chan types.MsgToDistributor)
+	allElevators := make(chan map[string]types.Elevator, 1)
+	ch_orderAssigned := make(chan types.MsgToDistributor, 1)
 
 	//Network channels
-	tx := make(chan types.ElevatorStateMessage)
-	rx := make(chan types.ElevatorStateMessage)
 
 	ch_peerTxEnable := make(chan bool)
-	ch_peerUpdate := make(chan peers.PeerUpdate)
 
 	//Local elevator state channel
-	ch_localElevatorStruct := make(chan types.Elevator)
-	ch_newLocalOrder := make(chan elevio.ButtonEvent)
-
-	tx_orderAssigned := make(chan types.MsgToDistributor)
-	rx_orderAssigned := make(chan types.MsgToDistributor)
+	ch_localElevatorStruct := make(chan types.Elevator, 1)
+	ch_newLocalOrder := make(chan elevio.ButtonEvent, 1)
 
 	go elevio.PollButtons(ch_drv_buttons)
 	go elevio.PollFloorSensor(ch_drv_floors)
@@ -50,17 +43,10 @@ func main() {
 
 	go fsm.RunElevator(ch_newLocalOrder, ch_drv_floors, ch_drv_obstr, ch_localElevatorStruct)
 
-	go bcast.Transmitter(config.PortBroadcast, tx)
-	go bcast.Receiver(config.PortBroadcast, rx)
-
-	go bcast.Transmitter(config.PortBroadcast, tx_orderAssigned)
-	go bcast.Receiver(config.PortBroadcast, rx_orderAssigned)
-
 	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
-	go peers.Receiver(config.PortPeers, ch_peerUpdate)
 
-	go assigner.Assignment(allElevators, ch_drv_buttons, ch_orderAssigned)
-	go distribution.Distribution(id, ch_localElevatorStruct, allElevators, tx, rx, ch_peerUpdate, ch_orderAssigned, ch_newLocalOrder, tx_orderAssigned, rx_orderAssigned)
+	go assigner.Assignment(id, allElevators, ch_drv_buttons, ch_orderAssigned)
+	go distribution.Distribution(id, ch_localElevatorStruct, allElevators, ch_orderAssigned, ch_newLocalOrder)
 
 	ch_wait := make(chan bool)
 	<-ch_wait

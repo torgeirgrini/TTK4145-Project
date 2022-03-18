@@ -1,9 +1,11 @@
 package assigner
 
 import (
+	"Project/assignment/costfn"
 	"Project/config"
 	"Project/distribution"
 	"Project/localElevator/elevio"
+	"Project/network/peers"
 	"Project/types"
 	"fmt"
 )
@@ -16,31 +18,68 @@ import (
 //Den får periodisk inn ESM fra distributor(main akkurat nå)
 //Peer list for å vite hvilke heiser som er på nettet og som kan ta ordre (Denne burde kanskje sendes periodisk)
 
-func Assignment(ch_allElevators <-chan map[string]types.Elevator,
+func Assignment(
+	localID string,
+	ch_allElevators <-chan map[string]types.Elevator,
 	ch_newLocalOrder <-chan elevio.ButtonEvent,
-	ch_newOrderAssigned chan<- types.MsgToDistributor) {
+	ch_newOrderAssigned chan<- types.MsgToDistributor,
+) {
 
 	elevators := make(map[string]types.Elevator)
-	btn_event := elevio.ButtonEvent{}
+	fmt.Printf("Assign elevators: %p, %#+v\n", elevators, elevators)
+	//btn_event := elevio.ButtonEvent{}
+	ch_peerUpdate := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.PortPeers, ch_peerUpdate)
+	var peerAvailability peers.PeerUpdate
 
 	for {
 		select {
-		case elevators = <-ch_allElevators:
-			fmt.Println("All elevator states:", elevators)
+		case elevat := <-ch_allElevators:
+			//fmt.Printf("assign | new elevators: %+v\n", elevat)
+			elevators = distribution.DeepCopy(elevat)
+			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevators, elevators)
 
 			//Videresend til assigner sånn at den kan regne ut
-		case btn_event = <-ch_newLocalOrder:
+		case btn_event := <-ch_newLocalOrder:
 			//Here we need to calcilate the cost functin
-			//TEST START
-			_ = btn_event
-			assignedID := "id3"
-			OrderFloor := 2
-			OrderButton := elevio.BT_HallUp
-			Ordertype_test := elevio.ButtonEvent{OrderFloor, OrderButton}
-			elevators[assignedID].Requests[OrderFloor][OrderButton] = true
-			send_msg := types.MsgToDistributor{Ordertype_test, distribution.DeepCopy(elevators)}
-			ch_newOrderAssigned <- send_msg
-			//TEST END
+			if btn_event.Button == elevio.BT_Cab {
+				ch_newOrderAssigned <- types.MsgToDistributor{
+					OrderType: btn_event,
+					ID:        localID,
+				}
+
+			} else {
+
+				AssignedElevID := localID
+
+				fmt.Println("Peerlist: ", peerAvailability.Peers)
+				fmt.Println("Buttonevent")
+				fmt.Printf("assign | elevators | %+#v\n", elevators)
+				elev_copy := types.Dup(elevators[AssignedElevID])
+				fmt.Printf("assign | elev copy | %+#v\n", elev_copy)
+				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
+				min_time := costfn.TimeToIdle(elev_copy)
+
+				for id, _ := range elevators {
+					fmt.Println("ID:", id)
+					elev_copy = types.Dup(elevators[id])
+					fmt.Println("elevcopyreq: ", elev_copy.Requests)
+					fmt.Println("btneventfloor: ", btn_event.Floor)
+					fmt.Println("btneventbtn: ", btn_event.Button)
+					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
+					if costfn.TimeToIdle(elev_copy) < min_time {
+						AssignedElevID = id
+						min_time = costfn.TimeToIdle(elev_copy)
+					}
+				}
+				fmt.Println("Assigned elevator: ", AssignedElevID)
+
+				send_msg := types.MsgToDistributor{OrderType: btn_event, ID: AssignedElevID}
+				ch_newOrderAssigned <- send_msg
+			}
+
+		case peerAvailability = <-ch_peerUpdate:
+
 		}
 	}
 }

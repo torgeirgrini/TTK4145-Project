@@ -3,6 +3,7 @@ package distribution
 import (
 	"Project/config"
 	"Project/localElevator/elevio"
+	"Project/network/bcast"
 	"Project/network/peers"
 	"Project/types"
 	"fmt"
@@ -48,7 +49,7 @@ func Distribution(id string,
 func DeepCopy(elevators map[string]types.Elevator) map[string]types.Elevator {
 	copied := make(map[string]types.Elevator)
 	for i, e := range elevators {
-		copied[i] = e
+		copied[i] = types.Dup(e)
 	}
 	return copied
 }
@@ -57,15 +58,22 @@ func Distribution(
 	localID string,
 	localElevator <-chan types.Elevator,
 	allElevators chan<- map[string]types.Elevator,
-	tx chan<- types.ElevatorStateMessage,
-	rx <-chan types.ElevatorStateMessage,
-	ch_peerUpdate <-chan peers.PeerUpdate,
 	ch_newOrderAssigned <-chan types.MsgToDistributor,
 	ch_orderAssignedToLocal chan<- elevio.ButtonEvent,
-	ch_newOrderAssignedToAll chan<- types.MsgToDistributor,
-	ch_readNewOrderFromNetwork <-chan types.MsgToDistributor) {
+) {
+
+	ch_peerUpdate := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.PortPeers, ch_peerUpdate)
+
+	tx := make(chan types.ElevatorStateMessage)
+	rx := make(chan types.ElevatorStateMessage)
+	ch_newOrderAssignedToAll := make(chan types.MsgToDistributor)
+	ch_readNewOrderFromNetwork := make(chan types.MsgToDistributor)
+	go bcast.Transmitter(config.PortBroadcast, tx, ch_newOrderAssignedToAll)
+	go bcast.Receiver(config.PortBroadcast, rx, ch_readNewOrderFromNetwork)
 
 	elevators := make(map[string]types.Elevator)
+	fmt.Printf("Distr elevator: %p, %#+v\n", elevators, elevators)
 
 	tick := time.NewTicker(config.TransmitInterval * time.Millisecond)
 
@@ -73,38 +81,54 @@ func Distribution(
 	for i := range Hallcalls {
 		Hallcalls[i] = make([]types.HallCall, config.NumButtons-1)
 	}
+
 	for {
+		//fmt.Println("FORLOOP elevatosmap: ", elevators[localID].Requests)
 		select {
+		case newOrder := <-ch_newOrderAssigned:
+			fmt.Printf("distribution | new order from assigner: %#+v\n", newOrder)
+			elevators[newOrder.ID].Requests[newOrder.OrderType.Floor][newOrder.OrderType.Button] = true
+			fmt.Println("Message rcvd")
+			fmt.Println("elevators:", elevators[localID].Requests)
+
+			if newOrder.ID == localID {
+				ch_orderAssignedToLocal <- newOrder.OrderType
+			}
+			ch_newOrderAssignedToAll <- newOrder
+
 		case e := <-localElevator:
+			//fmt.Printf("distribution | new local elevator: %#+v\n", e)
 			if !reflect.DeepEqual(elevators[localID], e) {
+				elevators[localID] = e
+				fmt.Println("DeepEqual entered from localelevator")
 				elevators[localID] = e
 				allElevators <- DeepCopy(elevators)
 			}
+
 		case <-tick.C:
-			tx <- types.ElevatorStateMessage{localID, elevators[localID], Hallcalls, elevators}
+			//fmt.Println("Her3")
+			tx <- types.ElevatorStateMessage{ID: localID, HallCalls: Hallcalls, ElevState: types.Dup(elevators[localID])}
 		case remote := <-rx:
-			if !reflect.DeepEqual(elevators[remote.ID], remote.LocalElevator) {
-				elevators[remote.ID] = remote.LocalElevator
+			//fmt.Printf("distribution | states from remote: %#+v\n", remote)
+
+			if !reflect.DeepEqual(elevators[remote.ID], remote.ElevState) {
+				elevators[remote.ID] = remote.ElevState
+				fmt.Println("DeepEqual entered from network")
 				allElevators <- DeepCopy(elevators)
 				setHallCalllights(elevators)
 			}
-		case peerUpdate := <-ch_peerUpdate:
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
-			fmt.Printf("  New:      %q\n", peerUpdate.New)
-			fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
-			//Må si ifra om at noen har kommet på/fallt av nettet
-			//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)
-		case updatedElevators := <-ch_newOrderAssigned:
-			if !reflect.DeepEqual(elevators[localID], updatedElevators.Elevators[localID]) {
-				elevators[localID] = updatedElevators.Elevators[localID]
-				ch_orderAssignedToLocal <- updatedElevators.OrderType
-			}
-			ch_newOrderAssignedToAll <- updatedElevators
-		case updatedOrders := <-ch_readNewOrderFromNetwork:
-			if !reflect.DeepEqual(elevators[localID], updatedOrders.Elevators[localID]) {
-				elevators[localID] = updatedOrders.Elevators[localID]
-				ch_orderAssignedToLocal <- updatedOrders.OrderType
+		// case peerUpdate := <-ch_peerUpdate:
+		// 	fmt.Printf("Peer update:\n")
+		// 	fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
+		// 	fmt.Printf("  New:      %q\n", peerUpdate.New)
+		// 	fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
+		// 	//Må si ifra om at noen har kommet på/fallt av nettet
+		// 	//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)
+
+		case newOrder := <-ch_readNewOrderFromNetwork:
+			fmt.Printf("distribution | new order from net: %#+v\n", newOrder)
+			if newOrder.ID == localID {
+				ch_orderAssignedToLocal <- newOrder.OrderType
 			}
 		}
 	}

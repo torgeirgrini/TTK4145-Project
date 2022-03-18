@@ -44,7 +44,7 @@ func Receiver(port int, chans ...interface{}) {
 		chansMap[reflect.TypeOf(ch).Elem().String()] = ch
 	}
 
-	var buf [1024]byte
+	var buf [4096]byte
 	conn := conn.DialBroadcastUDP(port)
 	for {
 		n, _, e := conn.ReadFrom(buf[0:])
