@@ -1,84 +1,40 @@
 package network
-
-import (
-	"Project/localElevator/elevator"
-	"Project/network/bcast"
-	"Project/network/localip"
-	"Project/network/peers"
-	"flag"
-	"fmt"
-	"os"
-	"time"
-)
-
-// We define some custom struct to send over the network.
-// Note that all members we want to transmit must be public. Any private members
-//  will be received as zero-values.
-type HelloMsg struct {
-	Message string
-	Iter    int
-}
+/*
 
 func Network(
-	ch_txEsm chan map[string]elevator.Elevator,
-	ch_rxEsm chan map[string]elevator.Elevator) {
+	id string,
+	ch_TxNewElevatorStateMap chan ElevatorStateMessage,
+	ch_RxNewElevatorStateMap chan ElevatorStateMessage,
+	ch_newLocalState <-chan elevator.Elevator,
+	ch_peerTxEnable <-chan bool) {
+
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
-	var id string
-	flag.StringVar(&id, "id", "", "id of this peer")
-	flag.Parse()
 
-	// ... or alternatively, we can use the local IP address.
-	// (But since we can run multiple programs on the same PC, we also append the
-	//  process ID)
-	if id == "" {
-		localIP, err := localip.LocalIP()
-		if err != nil {
-			fmt.Println(err)
-			localIP = "DISCONNECTED"
-		}
-		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
-	}
+	ch_peerUpdate := make(chan peers.PeerUpdate)
 
-	// We make a channel for receiving updates on the id's of the peers that are
-	//  alive on the network
-	peerUpdateCh := make(chan peers.PeerUpdate)
-	// We can disable/enable the transmitter after it has been started.
-	// This could be used to signal that we are somehow "unavailable".
-	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
+	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
+	go peers.Receiver(config.PortPeers, ch_peerUpdate)
 
-	// We make channels for sending and receiving our custom data types
-	helloTx := make(chan HelloMsg)
-	helloRx := make(chan HelloMsg)
-	// ... and start the transmitter/receiver pair on some port
-	// These functions can take any number of channels! It is also possible to
-	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, helloTx)
-	go bcast.Receiver(16569, helloRx)
+	go bcast.Transmitter(config.PortBroadcast, ch_TxNewElevatorStateMap)
+	go bcast.Receiver(config.PortBroadcast, ch_RxNewElevatorStateMap)
 
-	// The example message. We just send one of these every second.
-	go func() {
-		helloMsg := HelloMsg{"hei fra " + id, 0}
-		for {
-			helloMsg.Iter++
-			helloTx <- helloMsg
-			time.Sleep(1 * time.Second)
-		}
-	}()
-
+	//go PeriodicTransmit(ch_TxNewElevatorStateMap)
+	go Receive(ch_RxNewElevatorStateMap)
 	fmt.Println("Started")
+	//FSM for å motta fra nettet
 	for {
 		select {
-		case p := <-peerUpdateCh:
+		case peerUpdate := <-ch_peerUpdate:
 			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
-
-		case a := <-helloRx:
-			fmt.Printf("Received: %#v\n", a)
+			fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
+			fmt.Printf("  New:      %q\n", peerUpdate.New)
+			fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
+			//Må si ifra om at noen har kommet på/fallt av nettet
+		case NewElevatorStateMap := <-ch_RxNewElevatorStateMap:
+			_ = NewElevatorStateMap
+			//inn på en ny channel
 		}
 	}
 }
+*/
