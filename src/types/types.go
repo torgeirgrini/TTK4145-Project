@@ -84,7 +84,6 @@ type MsgToDistributor struct {
 }
 
 type OrderState int
-
 const (
 	OS_NONE OrderState = iota
 	OS_UNCONFIRMED
