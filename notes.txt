@@ -10,7 +10,8 @@
 
 -MODULE RESPONSIBUILITY!
 
-
+TODO 18/03.22
+Heissystemet fungerer, men det er et problem når man sender inn nye ordre for hallcalls som allerede er assignet. Må legge inn noe funksjonalitet for å ikke regne ut hallcalls som allerede eksisterer, burde være enkelt
 
 
 
