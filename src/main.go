@@ -2,12 +2,13 @@ package main
 
 import (
 	"Project/config"
+	"Project/distribution"
 	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
-	"Project/network"
+	"Project/network/bcast"
+	"Project/network/peers"
 	"flag"
-	"fmt"
 )
 
 func main() {
@@ -32,6 +33,12 @@ func main() {
 	//ch_rxEsm := make(chan network.ElevatorStateMessage)
 	allElevators := make(chan map[string]elevator.Elevator)
 
+	tx := make(chan distribution.ElevatorStateMessage)
+	rx := make(chan distribution.ElevatorStateMessage)
+
+	ch_peerTxEnable := make(chan bool)
+	ch_peerUpdate := make(chan peers.PeerUpdate)
+
 	//Local elevator state channel
 	ch_localElevatorStruct := make(chan elevator.Elevator)
 	//Local elevator channels
@@ -50,20 +57,13 @@ func main() {
 
 	//go distributor.Distributor(ch_drv_buttons)
 
-	go network.States(id, ch_localElevatorStruct, allElevators)
+	go bcast.Transmitter(config.PortBroadcast, tx)
+	go bcast.Receiver(config.PortBroadcast, rx)
 
-	//distributor kanskje?
-	for {
-		select {
-		case a := <-allElevators:
-			fmt.Printf("All elevator states:\n")
-			for id, e := range a {
-				fmt.Printf("  %s  :  %+v\n", id, e)
-			}
-			fmt.Printf("\n")
-			//Videresend til assigner sånn at den kan regne ut
-		}
-	}
+	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
+	go peers.Receiver(config.PortPeers, ch_peerUpdate)
+
+	go distribution.Distribution(id, ch_localElevatorStruct, allElevators, tx, rx, ch_peerUpdate)
 
 	ch_wait := make(chan bool)
 	<-ch_wait

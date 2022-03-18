@@ -12,7 +12,7 @@ package assigner
 
 //Denne tar inn 
 	//Buttonpress fra hardware IO
-	//Den får periodisk inn ESM fra der den sendes periodisk (main akkurat nå)
+	//Den får periodisk inn ESM fra distributor(main akkurat nå)
 	//Peer list for å vite hvilke heiser som er på nettet og som kan ta ordre (Denne burde kanskje sendes periodisk)
 
 
