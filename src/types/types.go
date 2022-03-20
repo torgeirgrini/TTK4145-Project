@@ -6,7 +6,6 @@ import (
 )
 
 type ElevatorBehaviour int
-
 const (
 	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
@@ -14,31 +13,17 @@ const (
 )
 
 type ClearRequestVariant int
-
 const (
 	CV_All ClearRequestVariant = iota
 	CV_InDirn
 )
 
-type Elevator struct {
-	Floor     int
-	Dirn      elevio.MotorDirection
-	Requests  [][]bool
-	Behaviour ElevatorBehaviour
-	// legg til avalible-bit?
-
-	//vet ikke om dette bør være i egen struct i go? - HØR MED STUD.ASSER
-	ClearRequestVariant ClearRequestVariant
-	DoorOpenDuration_s  float64
-}
-
-type MsgToDistributor struct {
+type AssignedOrder struct {
 	OrderType elevio.ButtonEvent
 	ID        string
 }
 
 type OrderState int
-
 const (
 	OS_NONE OrderState = iota
 	OS_UNCONFIRMED
@@ -47,13 +32,13 @@ const (
 )
 
 type HallCall struct {
-	executerID string
-	assignerID string
-	orderState OrderState
-	ackList    [config.NumElevators]string
+	ExecutorID string
+	AssignerID string
+	OrderState OrderState
+	AckList    []string
 }
 
-type ElevatorStateMessage struct {
+type NetworkMessage struct {
 	ID        string
 	HallCalls [][]HallCall
 	ElevState Elevator
@@ -62,6 +47,14 @@ type ElevatorStateMessage struct {
 type Action struct {
 	Dirn      elevio.MotorDirection
 	Behaviour ElevatorBehaviour
+}
+
+type Elevator struct {
+	Floor     int
+	Dirn      elevio.MotorDirection
+	Requests  [][]bool
+	Behaviour ElevatorBehaviour
+	ClearRequestVariant ClearRequestVariant
 }
 
 func InitElev() Elevator {
@@ -77,6 +70,5 @@ func InitElev() Elevator {
 		Dirn:                elevio.MD_Stop,
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
-		ClearRequestVariant: CV_InDirn,
-		DoorOpenDuration_s:  config.DoorOpenDuration}
+		ClearRequestVariant: CV_InDirn}
 }

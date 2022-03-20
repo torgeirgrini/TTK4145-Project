@@ -8,4 +8,4 @@ const TravelTime = 2500 //millisecond
 const RefreshStatePeriod int64 = 500 //milliseconds
 const PortPeers = 15647
 const PortBroadcast = 16569
-const TransmitInterval = 15
+const TransmitInterval = 1000

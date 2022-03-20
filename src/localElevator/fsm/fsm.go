@@ -119,7 +119,6 @@ func RunLocalElevator(
 
 		case <-ch_doorTimer:
 			if !obstruction {
-				fmt.Println("Timer timed out")
 				switch e.Behaviour {
 				case types.EB_DoorOpen:
 					action := requests.Requests_nextAction(e)

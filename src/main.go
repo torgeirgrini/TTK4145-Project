@@ -27,7 +27,7 @@ func main() {
 
 	//Assigner<-/->Distributor channels
 	ch_elevatorMap := make(chan map[string]types.Elevator, 1)
-	ch_assignedOrder := make(chan types.MsgToDistributor, 1)
+	ch_assignedOrder := make(chan types.AssignedOrder, 1)
 
 	//Network channels
 	ch_peerTxEnable := make(chan bool)
