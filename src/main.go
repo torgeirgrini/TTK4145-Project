@@ -21,32 +21,30 @@ func main() {
 	elevio.Init("localhost:"+p, config.NumFloors)
 
 	//Hardware channels
-	ch_drv_buttons := make(chan elevio.ButtonEvent)
-	ch_drv_floors := make(chan int)
-	ch_drv_obstr := make(chan bool)
+	ch_hwButtonPress := make(chan elevio.ButtonEvent)
+	ch_hwFloor := make(chan int)
+	ch_hwObstruction := make(chan bool)
 
-	//Assigner channels
-	allElevators := make(chan map[string]types.Elevator, 1)
-	ch_orderAssigned := make(chan types.MsgToDistributor, 1)
+	//Assigner<-/->Distributor channels
+	ch_elevatorMap := make(chan map[string]types.Elevator, 1)
+	ch_assignedOrder := make(chan types.MsgToDistributor, 1)
 
 	//Network channels
-
 	ch_peerTxEnable := make(chan bool)
 
-	//Local elevator state channel
-	ch_localElevatorStruct := make(chan types.Elevator, 1)
+	//LocalElevator<-/->Distributor channels
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, 1)
+	ch_localElevatorState := make(chan types.Elevator, 1)
 
-	go elevio.PollButtons(ch_drv_buttons)
-	go elevio.PollFloorSensor(ch_drv_floors)
-	go elevio.PollObstructionSwitch(ch_drv_obstr)
-
-	go fsm.RunElevator(ch_newLocalOrder, ch_drv_floors, ch_drv_obstr, ch_localElevatorStruct)
-
+	go elevio.PollButtons(ch_hwButtonPress)
+	go elevio.PollFloorSensor(ch_hwFloor)
+	go elevio.PollObstructionSwitch(ch_hwObstruction)
 	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
-
-	go assigner.Assignment(id, allElevators, ch_drv_buttons, ch_orderAssigned)
-	go distribution.Distribution(id, ch_localElevatorStruct, allElevators, ch_orderAssigned, ch_newLocalOrder)
+	
+	
+	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState)
+	go assigner.Assignment(id, ch_elevatorMap, ch_hwButtonPress, ch_assignedOrder)
+	go distribution.Distribution(id, ch_localElevatorState, ch_elevatorMap, ch_assignedOrder, ch_newLocalOrder)
 
 	ch_wait := make(chan bool)
 	<-ch_wait
