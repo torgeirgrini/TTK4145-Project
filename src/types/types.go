@@ -44,6 +44,11 @@ type NetworkMessage struct {
 	ElevState Elevator
 }
 
+type AssignerMessage struct {
+	PeerList []string
+	ElevatorMap map[string]Elevator 
+}
+
 type Action struct {
 	Dirn      elevio.MotorDirection
 	Behaviour ElevatorBehaviour

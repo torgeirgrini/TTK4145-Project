@@ -8,7 +8,7 @@ func PeriodicTransmit(
 		select {
 		case LocalState := <-ch_newLocalState:
 			_ = LocalState
-		case <-time.After(config.TransmitInterval * time.Millisecond):
+		case <-time.After(config.TransmitInterval_ms * time.Millisecond):
 		}
 		//msgstruct := createMsgStruct()
 		//ch_TxNewElevatorMessage <- msgstruct

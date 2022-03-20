@@ -45,17 +45,15 @@ func RunLocalElevator(
 	elevio.SetMotorDirection(elevio.MD_Stop)
 
 	Fsm_OnInitBetweenFloors(&e)
-	ch_localElevatorState <- e
 
 	currentFloor := <-ch_hwFloor
 	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
-	ch_localElevatorState <- e
 
 	//Initialize Timers
-	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
+	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
-	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
+	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod_ms) * time.Millisecond)
 	// ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
@@ -69,7 +67,7 @@ func RunLocalElevator(
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 				}
@@ -85,7 +83,7 @@ func RunLocalElevator(
 				switch action.Behaviour {
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					requests.Requests_clearAtCurrentFloor(&e)
 
 				case types.EB_Moving:
@@ -108,7 +106,7 @@ func RunLocalElevator(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					requests.Requests_clearAtCurrentFloor(&e)
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
 				}
@@ -127,7 +125,7 @@ func RunLocalElevator(
 
 					switch e.Behaviour {
 					case types.EB_DoorOpen:
-						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 						requests.Requests_clearAtCurrentFloor(&e)
 						SetAllLights(e)
 					case types.EB_Moving:
@@ -142,7 +140,7 @@ func RunLocalElevator(
 
 		case obstruction = <-ch_hwObstruction:
 			if !obstruction {
-				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			}
 
 		}

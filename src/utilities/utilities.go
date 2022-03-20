@@ -51,3 +51,11 @@ func DeepCopyHallCalls(hallcalls [][]types.HallCall) [][]types.HallCall {
 	}
 	return copied
 }
+
+func DeepCopyStringSlice(slice []string, length int) []string {
+	copied := make([]string, length)
+	for i, _ := range copied {
+		copied[i] = slice[i]
+	}
+	return copied
+}

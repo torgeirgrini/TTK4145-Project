@@ -20,17 +20,17 @@ func TimeToIdle(e types.Elevator) int {
 		}
 
 	case types.EB_Moving:
-		duration += int(time.Duration(config.TravelTime)*time.Millisecond) / 2
+		duration += int(time.Duration(config.TravelTime_ms)*time.Millisecond) / 2
 		e.Floor += int(e.Dirn)
 
 	case types.EB_DoorOpen:
-		duration -= int(time.Duration(config.DoorOpenDuration)*time.Second) / 2
+		duration -= int(time.Duration(config.DoorOpenDuration_s)*time.Second) / 2
 	}
 
 	for {
 		if requests.Requests_shouldStop(e) {
 			requests.Requests_clearAtCurrentFloor(&e)
-			duration += int(time.Duration(config.DoorOpenDuration)*time.Second)
+			duration += int(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			e.Dirn = requests.Requests_nextAction(e).Dirn
 			if e.Dirn == elevio.MD_Stop {
 				fmt.Println(duration)
@@ -39,6 +39,6 @@ func TimeToIdle(e types.Elevator) int {
 			}
 		}
 		e.Floor += int(e.Dirn)
-		duration += int(time.Duration(config.TravelTime) * time.Millisecond)
+		duration += int(time.Duration(config.TravelTime_ms) * time.Millisecond)
 	}
 }

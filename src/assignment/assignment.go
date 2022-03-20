@@ -4,7 +4,6 @@ import (
 	"Project/assignment/costfn"
 	"Project/config"
 	"Project/localElevator/elevio"
-	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
 	"fmt"
@@ -20,22 +19,23 @@ import (
 
 func Assignment(
 	localID string,
-	ch_elevatorMap <-chan map[string]types.Elevator,
+	ch_informationToAssigner <-chan types.AssignerMessage,
 	ch_hwButtonPress <-chan elevio.ButtonEvent,
 	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
+	assignerMsg := types.AssignerMessage{}
 	elevatorMap := make(map[string]types.Elevator)
+	var peerList []string
 	//fmt.Printf("Assign elevators: %p, %#+v\n", elevatorMap, elevatorMap)
 	//btn_event := elevio.ButtonEvent{}
-	ch_peerUpdate := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.PortPeers, ch_peerUpdate)
-	var peerAvailability peers.PeerUpdate
 
 	for {
-		
+
 		select {
-		case elevatorMap = <-ch_elevatorMap:
+		case assignerMsg = <-ch_informationToAssigner:
+			elevatorMap = assignerMsg.ElevatorMap
+			peerList = assignerMsg.PeerList
 			//fmt.Printf("assign | new elevators: %+v\n", elevatorMap)
 			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevatorMap, elevatorMap)
 
@@ -52,7 +52,7 @@ func Assignment(
 
 				AssignedElevID := localID
 
-				fmt.Println("Peerlist: ", peerAvailability.Peers)
+				fmt.Println("Peerlist: ", peerList)
 				fmt.Println("Buttonevent")
 				fmt.Printf("assign | elevators | %+#v\n", elevatorMap)
 				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
@@ -60,7 +60,7 @@ func Assignment(
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(elev_copy)
 
-				for _,id := range peerAvailability.Peers {
+				for _, id := range peerList {
 					fmt.Println("ID:", id)
 					elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
 					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
@@ -73,14 +73,6 @@ func Assignment(
 
 				ch_assignedOrder <- types.AssignedOrder{OrderType: btn_event, ID: AssignedElevID}
 			}
-
-		case peerAvailability = <-ch_peerUpdate:
-			// fmt.Printf("Peer update:\n")
-			// fmt.Printf("  Peers:    %q\n", peerAvailability.Peers)
-			// fmt.Printf("  New:      %q\n", peerAvailability.New)
-			// fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
-			// fmt.Println("ElevatorMap: ", elevatorMap)
-
 		}
 	}
 }

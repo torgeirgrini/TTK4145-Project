@@ -26,7 +26,7 @@ func main() {
 	ch_hwObstruction := make(chan bool)
 
 	//Assigner<-/->Distributor channels
-	ch_elevatorMap := make(chan map[string]types.Elevator, 1)
+	ch_informationToAssigner := make(chan types.AssignerMessage, 1)
 	ch_assignedOrder := make(chan types.AssignedOrder, 1)
 
 	//Network channels
@@ -40,11 +40,10 @@ func main() {
 	go elevio.PollFloorSensor(ch_hwFloor)
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
-	
-	
+
 	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState)
-	go assigner.Assignment(id, ch_elevatorMap, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_localElevatorState, ch_elevatorMap, ch_assignedOrder, ch_newLocalOrder)
+	go assigner.Assignment(id, ch_informationToAssigner, ch_hwButtonPress, ch_assignedOrder)
+	go distribution.Distribution(id, ch_localElevatorState, ch_informationToAssigner, ch_assignedOrder, ch_newLocalOrder)
 
 	ch_wait := make(chan bool)
 	<-ch_wait
