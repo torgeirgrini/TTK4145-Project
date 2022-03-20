@@ -5,6 +5,7 @@ import (
 	"Project/localElevator/elevio"
 	"Project/localElevator/requests"
 	"Project/types"
+	"Project/utilities"
 	"fmt"
 	"time"
 )
@@ -31,11 +32,11 @@ func Fsm_OnInitArrivedAtFloor(e *types.Elevator, currentFloor int) {
 	elevio.SetFloorIndicator(currentFloor)
 }
 
-func RunElevator(
-	ch_newAssignedOrder <-chan elevio.ButtonEvent,
-	ch_FloorArrival <-chan int,
-	ch_Obstruction <-chan bool,
-	ch_localElevatorStruct chan<- types.Elevator) {
+func RunLocalElevator(
+	ch_newLocalOrder <-chan elevio.ButtonEvent,
+	ch_hwFloor <-chan int,
+	ch_hwObstruction <-chan bool,
+	ch_localElevatorState chan<- types.Elevator) {
 
 	//Initialize
 	e := types.InitElev()
@@ -44,12 +45,11 @@ func RunElevator(
 	elevio.SetMotorDirection(elevio.MD_Stop)
 
 	Fsm_OnInitBetweenFloors(&e)
-	ch_localElevatorStruct <- e
+	ch_localElevatorState <- e
 
-	currentFloor := <-ch_FloorArrival
-	fmt.Println("Floor:", currentFloor)
+	currentFloor := <-ch_hwFloor
 	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
-	ch_localElevatorStruct <- e
+	ch_localElevatorState <- e
 
 	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
@@ -60,11 +60,11 @@ func RunElevator(
 	//Elevator FSM
 	var obstruction bool = false
 	for {
-		types.PrintElevator(e)
-		ch_localElevatorStruct <- types.Dup(e)
+		//types.PrintElevator(e)
+		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 
 		select {
-		case newOrder := <-ch_newAssignedOrder:
+		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("Order received: Order {Floor, Type}:", newOrder)
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
@@ -97,7 +97,7 @@ func RunElevator(
 			}
 			SetAllLights(e)
 
-		case newFloor := <-ch_FloorArrival:
+		case newFloor := <-ch_hwFloor:
 			fmt.Println("Floor:", newFloor)
 			e.Floor = newFloor
 			elevio.SetFloorIndicator(e.Floor)
@@ -141,7 +141,7 @@ func RunElevator(
 
 			}
 
-		case obstruction = <-ch_Obstruction:
+		case obstruction = <-ch_hwObstruction:
 			if !obstruction {
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
 			}
