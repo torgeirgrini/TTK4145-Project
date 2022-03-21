@@ -58,12 +58,10 @@ func RunLocalElevator(
 	//Elevator FSM
 	var obstruction bool = false
 	for {
-		//types.PrintElevator(e)
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 
 		select {
 		case newOrder := <-ch_newLocalOrder:
-			fmt.Println("Order received: Order {Floor, Type}:", newOrder)
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {

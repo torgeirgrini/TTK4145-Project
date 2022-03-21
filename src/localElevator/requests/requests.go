@@ -93,7 +93,9 @@ func Requests_shouldClearImmediately(e types.Elevator, btn_floor int, btn_type e
 		return e.Floor == btn_floor &&
 			((e.Dirn == elevio.MD_Up && btn_type == elevio.BT_HallUp) ||
 				(e.Dirn == elevio.MD_Down && btn_type == elevio.BT_HallDown) ||
-				e.Dirn == elevio.MD_Stop || btn_type == elevio.BT_Cab)
+				e.Dirn == elevio.MD_Stop || btn_type == elevio.BT_Cab ||
+				(e.Dirn == elevio.MD_Up && e.Floor == config.NumFloors-1) ||
+				(e.Dirn == elevio.MD_Down && e.Floor == 0))
 
 	default:
 		return false

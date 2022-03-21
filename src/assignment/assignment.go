@@ -34,8 +34,8 @@ func Assignment(
 
 		select {
 		case assignerMsg = <-ch_informationToAssigner:
-			elevatorMap = assignerMsg.ElevatorMap
-			peerList = assignerMsg.PeerList
+			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
+			peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
 			//fmt.Printf("assign | new elevators: %+v\n", elevatorMap)
 			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevatorMap, elevatorMap)
 

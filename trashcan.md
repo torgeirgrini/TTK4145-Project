@@ -94,3 +94,12 @@ func createMsgStruct(id string, hallCalls [config.NumFloors][config.NumButtons -
 		// 	fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
 		// 	//Må si ifra om at noen har kommet på/fallt av nettet
 		// 	//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)
+
+
+alreadyAddedToAckList := false
+for _, AckID := range remote_hc.AckList {
+	fmt.Println("ACKID == localid: ", AckID, " == ", localID)
+	if AckID == localID {	
+		alreadyAddedToAckList = true
+	}
+}

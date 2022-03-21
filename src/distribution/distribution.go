@@ -44,18 +44,21 @@ func Distribution(
 	for i := range Hallcalls {
 		Hallcalls[i] = make([]types.HallCall, config.NumButtons-1)
 		for j := range Hallcalls[i] {
-			Hallcalls[i][j] = types.HallCall{ExecutorID: "", AssignerID: "", OrderState: types.OS_NONE, AckList: make([]string, config.NumElevators)}
+			Hallcalls[i][j] = types.HallCall{ExecutorID: "", AssignerID: "", OrderState: types.OS_NONE, AckList: make([]string, 0)}
 		}
 	}
 
 	//Wait til elevator initialized
 	elevators[localID] = <-ch_localElevatorState
-
+	ch_informationToAssigner <- types.AssignerMessage{
+		PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
+		ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
+	}
 	for {
 		select {
 		case newAssignedOrder := <-ch_assignedOrder:
 			fmt.Printf("distribution | new order from assigner: %#+v\n", newAssignedOrder)
-			elevators[newAssignedOrder.ID].Requests[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button] = true
+			//elevators[newAssignedOrder.ID].Requests[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button] = true
 			fmt.Println("elevators:", elevators[localID].Requests)
 
 			if newAssignedOrder.OrderType.Button != elevio.BT_Cab {
@@ -65,56 +68,71 @@ func Distribution(
 					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
 					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
-
+					if newAssignedOrder.ID == localID {
+						Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_CONFIRMED
+					}
 				case types.OS_UNCONFIRMED:
 				case types.OS_CONFIRMED:
 				case types.OS_COMPLETED:
 				}
-
-				if newAssignedOrder.ID == localID {
-					ch_newLocalOrder <- newAssignedOrder.OrderType
-				}
-				fmt.Println("Order to network: ", newAssignedOrder)
-				ch_newAssignedOrderToNetwork <- newAssignedOrder
+			}
+			if newAssignedOrder.ID == localID {
+				ch_newLocalOrder <- newAssignedOrder.OrderType
+			}
+			ch_txNetworkMsg <- types.NetworkMessage{ID: localID,
+				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
+				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
 
 		case e := <-ch_localElevatorState:
+			fmt.Println("NÅ ER VI HER1")
 			if !reflect.DeepEqual(elevators[localID], e) {
-
+				fmt.Println("NÅ ER VI HER2")
+				
 				//Check if any Hallcall is completed
 
 				for i := 0; i < config.NumFloors; i++ {
 					for j := 0; j < config.NumButtons-1; j++ {
 						switch Hallcalls[i][j].OrderState {
+							/*
 						case types.OS_NONE:
 							fallthrough
 						case types.OS_UNCONFIRMED:
-							fallthrough
+							fallthrough*/
 						case types.OS_CONFIRMED:
-							if e.Requests[i][j] != elevators[localID].Requests[i][j] {
+							//fmt.Println("e.Requests[i][j]: ", e.Requests[i][j])
+							//fmt.Println("elevators[localID].Requests[i][j]: ", elevators[localID].Requests[i][j])
+							fmt.Println("NÅ ER VI HER3")
+							fmt.Println("e.Requests[i][j]: ", e.Requests)
+						fmt.Println("elevators[localID].Requests[i][j]: ", elevators[localID].Requests)
+							if e.Requests[i][j] != elevators[localID].Requests[i][j] && !e.Requests[i][j] {
+								fmt.Println("NÅ ER VI HER4")
 								Hallcalls[i][j].OrderState = types.OS_COMPLETED
+								fmt.Println(Hallcalls[i][j].OrderState)
 								//Hallcalls[i][j].AckList = append(Hallcalls[i][j].AckList, localID)
 							}
-							ch_txNetworkMsg <- types.NetworkMessage{
-								ID:        localID,
-								HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
-								ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
-							}
+							/*
+								ch_txNetworkMsg <- types.NetworkMessage{
+									ID:        localID,
+									HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
+									ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
+								}*/
 						case types.OS_COMPLETED:
 						}
 					}
 				}
 
-				elevators[localID] = e
+				elevators[localID] = utilities.DeepCopyElevatorStruct(e)
 				ch_informationToAssigner <- types.AssignerMessage{
 					PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
+				setHallCalllights(elevators)
 			}
 
 		case <-tick.C:
-			//fmt.Println("Hallcalls tx: ", Hallcalls)
-
+			fmt.Println("Hallcalls tx: ", Hallcalls)
+			fmt.Println("Peers: ", peerAvailability.Peers)
 			ch_txNetworkMsg <- types.NetworkMessage{
 				ID:        localID,
 				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
@@ -122,46 +140,44 @@ func Distribution(
 			}
 		case remote := <-ch_rxNetworkMsg:
 			//fmt.Printf("distribution | states from remote: %#+v\n", remote)
-			//if remote.ID != localID {
-			if !reflect.DeepEqual(remote.HallCalls, Hallcalls) {
-				//Hallcalls = utilities.DeepCopyHallCalls(remote.HallCalls)
-				fmt.Println("BEFORE")
-				fmt.Println("HallCalls local save: ", Hallcalls)
-				fmt.Println("HallCalls from network: ", remote.HallCalls)
-			}
+			if remote.ID != localID {
+				// if !reflect.DeepEqual(remote.HallCalls, Hallcalls) {
+				// 	//Hallcalls = utilities.DeepCopyHallCalls(remote.HallCalls)
+				// 	fmt.Println("BEFORE")
+				// 	fmt.Println("HallCalls local save: ", Hallcalls)
+				// 	fmt.Println("HallCalls from network: ", remote.HallCalls)
+				// }
+				//switch case med order state. bare telle oppover. cyclic counter. kan ikke sjekke om de er ulike, vi må sjekke om den på remote har kommet lengre i sykelen, isåfall kan vi oppdatere
+				for floor := 0; floor < config.NumFloors; floor++ {
+					for btn, remote_hc := range remote.HallCalls[floor] {
+						if remote_hc.OrderState == types.OS_COMPLETED {
+							Hallcalls[floor][btn].OrderState = remote_hc.OrderState
+							Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote_hc.AckList...)
+							Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
+							Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+							fmt.Println("Acklist : ", Hallcalls[floor][btn].AckList)
+							
 
-			//switch case med order state. bare telle oppover. cyclic counter. kan ikke sjekke om de er ulike, vi må sjekke om den på remote har kommet lengre i sykelen, isåfall kan vi oppdatere
-			for floor := 0; floor < config.NumFloors; floor++ {
-				for btn, remote_hc := range remote.HallCalls[floor] {
-					switch remote_hc.OrderState {
-					case types.OS_NONE:
-						fallthrough
-					case types.OS_UNCONFIRMED:
-						fallthrough
-					case types.OS_CONFIRMED:
-						Hallcalls[floor][btn].OrderState = remote_hc.OrderState
-					case types.OS_COMPLETED:
-						Hallcalls[floor][btn].AckList = utilities.DeepCopyStringSlice(remote_hc.AckList, len(remote_hc.AckList))
-						alreadyAddedToAckList := false
-						for _, AckID := range remote_hc.AckList {
-							fmt.Println("ACKID == localid: ", AckID, " == ", localID)
-							if AckID == localID {	
-								alreadyAddedToAckList = true
+							if sameStringSlice(Hallcalls[floor][btn].AckList, peerAvailability.Peers) {
+								Hallcalls[floor][btn].ExecutorID = ""
+								Hallcalls[floor][btn].AssignerID = ""
+								Hallcalls[floor][btn].OrderState = types.OS_NONE
+								Hallcalls[floor][btn].AckList = make([]string, 0)
 							}
+						} else if Hallcalls[floor][btn].OrderState < remote_hc.OrderState {
+							fmt.Println("HallCalls local save: ", Hallcalls)
+							fmt.Println("HallCalls from network: ", remote.HallCalls)
+							Hallcalls[floor][btn] = utilities.DeepCopyHallCalls(remote.HallCalls)[floor][btn]
+							fmt.Println("AFTER")
+							fmt.Println("HallCalls local save: ", Hallcalls)
 						}
 
-						if reflect.DeepEqual(remote_hc.AckList, peerAvailability.Peers) {
-							Hallcalls[floor][btn].ExecutorID = ""
-							Hallcalls[floor][btn].AssignerID = ""
-							Hallcalls[floor][btn].OrderState = types.OS_NONE
-							Hallcalls[floor][btn].AckList = make([]string, config.NumElevators)
-						} else if !alreadyAddedToAckList {
-							updatedAckList := append(Hallcalls[floor][btn].AckList, localID)
-							Hallcalls[floor][btn].AckList = utilities.DeepCopyStringSlice(updatedAckList, len(updatedAckList))
-							ch_txNetworkMsg <- types.NetworkMessage{
-								ID:        localID,
-								HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
-								ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
+						//hvis vi får en ordre som er til oss må vi ta den
+						if remote_hc.ExecutorID == localID && remote_hc.OrderState == types.OS_UNCONFIRMED {
+							Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
+							ch_newLocalOrder <- elevio.ButtonEvent{
+								Floor:  floor,
+								Button: elevio.ButtonType(btn),
 							}
 						}
 					}
@@ -170,7 +186,7 @@ func Distribution(
 
 			if !reflect.DeepEqual(elevators[remote.ID], remote.ElevState) {
 				elevators[remote.ID] = remote.ElevState
-				fmt.Printf("distribution | info to assigner: %#+v\n", elevators)
+				//fmt.Printf("distribution | info to assigner: %#+v\n", elevators)
 				ch_informationToAssigner <- types.AssignerMessage{
 					PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
@@ -179,36 +195,16 @@ func Distribution(
 			}
 			if !reflect.DeepEqual(remote.HallCalls, Hallcalls) {
 				//Hallcalls = utilities.DeepCopyHallCalls(remote.HallCalls)
-				fmt.Println("AFTER")
-				fmt.Println("HallCalls local save: ", Hallcalls)
-				fmt.Println("HallCalls from network: ", remote.HallCalls)
-			}
-			//}
-
-		case newOrder := <-ch_readNewOrderFromNetwork:
-			fmt.Printf("distribution | new order from net: %#+v\n", newOrder)
-			fmt.Println("Local ID, RemoteID: ", localID, " ", newOrder.ID)
-			if newOrder.ID == localID && newOrder.OrderType.Button != elevio.BT_Cab {
-				switch Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].OrderState {
-				case types.OS_NONE:
-					fallthrough
-				case types.OS_UNCONFIRMED:
-					Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].ExecutorID = localID
-					Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].AssignerID = newOrder.ID
-					Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].OrderState = types.OS_CONFIRMED
-				case types.OS_CONFIRMED:
-					Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].ExecutorID = localID
-					Hallcalls[newOrder.OrderType.Floor][newOrder.OrderType.Button].AssignerID = newOrder.ID
-				case types.OS_COMPLETED:
-				}
-				ch_newLocalOrder <- newOrder.OrderType
+				// fmt.Println("AFTER")
+				// fmt.Println("HallCalls local save: ", Hallcalls)
+				// fmt.Println("HallCalls from network: ", remote.HallCalls)
 			}
 		case peerAvailability = <-ch_peerUpdate:
-			// fmt.Printf("Peer update:\n")
-			// fmt.Printf("  Peers:    %q\n", peerAvailability.Peers)
-			// fmt.Printf("  New:      %q\n", peerAvailability.New)
-			// fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
-			// fmt.Println("ElevatorMap: ", elevatorMap)
+			fmt.Printf("Peer update:\n")
+			fmt.Printf("  Peers:    %q\n", peerAvailability.Peers)
+			fmt.Printf("  New:      %q\n", peerAvailability.New)
+			fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
+			//fmt.Println("ElevatorMap: ", elevators)
 
 		}
 	}
@@ -236,4 +232,39 @@ func HallRequestsFromESM(allElevators map[string]types.Elevator) [][]bool {
 		}
 	}
 	return Hallcalls
+}
+
+func removeDuplicates(s []string) []string {
+	inResult := make(map[string]bool)
+	var result []string
+	for _, str := range s {
+		if _, ok := inResult[str]; !ok {
+			inResult[str] = true
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
+func sameStringSlice(x, y []string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	diff := make(map[string]int, len(x))
+	for _, _x := range x {
+		diff[_x]++
+	}
+	for _, _y := range y {
+		if _, ok := diff[_y]; !ok {
+			return false
+		}
+		diff[_y] -= 1
+		if diff[_y] == 0 {
+			delete(diff, _y)
+		}
+	}
+	if len(diff) == 0 {
+		return true
+	}
+	return false
 }

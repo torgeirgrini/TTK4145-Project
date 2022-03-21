@@ -34,4 +34,8 @@ go run main.go --id id1 -p 43521
 go run main.go --id id2 -p 12121
 go run main.go --id id3 -p 21212
 
+BUGS:
+
+- Lys for alle heiser 
+
 
