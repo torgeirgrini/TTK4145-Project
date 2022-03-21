@@ -3,10 +3,9 @@ package assigner
 import (
 	"Project/assignment/costfn"
 	"Project/config"
-	"Project/distribution"
 	"Project/localElevator/elevio"
-	"Project/network/peers"
 	"Project/types"
+	"Project/utilities"
 	"fmt"
 )
 
@@ -20,30 +19,31 @@ import (
 
 func Assignment(
 	localID string,
-	ch_allElevators <-chan map[string]types.Elevator,
-	ch_newLocalOrder <-chan elevio.ButtonEvent,
-	ch_newOrderAssigned chan<- types.MsgToDistributor,
+	ch_informationToAssigner <-chan types.AssignerMessage,
+	ch_hwButtonPress <-chan elevio.ButtonEvent,
+	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
-	elevators := make(map[string]types.Elevator)
-	fmt.Printf("Assign elevators: %p, %#+v\n", elevators, elevators)
+	assignerMsg := types.AssignerMessage{}
+	elevatorMap := make(map[string]types.Elevator)
+	var peerList []string
+	//fmt.Printf("Assign elevators: %p, %#+v\n", elevatorMap, elevatorMap)
 	//btn_event := elevio.ButtonEvent{}
-	ch_peerUpdate := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.PortPeers, ch_peerUpdate)
-	var peerAvailability peers.PeerUpdate
 
 	for {
+
 		select {
-		case elevat := <-ch_allElevators:
-			//fmt.Printf("assign | new elevators: %+v\n", elevat)
-			elevators = distribution.DeepCopy(elevat)
-			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevators, elevators)
+		case assignerMsg = <-ch_informationToAssigner:
+			elevatorMap = assignerMsg.ElevatorMap
+			peerList = assignerMsg.PeerList
+			//fmt.Printf("assign | new elevators: %+v\n", elevatorMap)
+			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevatorMap, elevatorMap)
 
 			//Videresend til assigner sånn at den kan regne ut
-		case btn_event := <-ch_newLocalOrder:
+		case btn_event := <-ch_hwButtonPress:
 			//Here we need to calcilate the cost functin
 			if btn_event.Button == elevio.BT_Cab {
-				ch_newOrderAssigned <- types.MsgToDistributor{
+				ch_assignedOrder <- types.AssignedOrder{
 					OrderType: btn_event,
 					ID:        localID,
 				}
@@ -52,20 +52,17 @@ func Assignment(
 
 				AssignedElevID := localID
 
-				fmt.Println("Peerlist: ", peerAvailability.Peers)
+				fmt.Println("Peerlist: ", peerList)
 				fmt.Println("Buttonevent")
-				fmt.Printf("assign | elevators | %+#v\n", elevators)
-				elev_copy := types.Dup(elevators[AssignedElevID])
+				fmt.Printf("assign | elevators | %+#v\n", elevatorMap)
+				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
 				fmt.Printf("assign | elev copy | %+#v\n", elev_copy)
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(elev_copy)
 
-				for id, _ := range elevators {
+				for _, id := range peerList {
 					fmt.Println("ID:", id)
-					elev_copy = types.Dup(elevators[id])
-					fmt.Println("elevcopyreq: ", elev_copy.Requests)
-					fmt.Println("btneventfloor: ", btn_event.Floor)
-					fmt.Println("btneventbtn: ", btn_event.Button)
+					elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
 					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 					if costfn.TimeToIdle(elev_copy) < min_time {
 						AssignedElevID = id
@@ -74,12 +71,8 @@ func Assignment(
 				}
 				fmt.Println("Assigned elevator: ", AssignedElevID)
 
-				send_msg := types.MsgToDistributor{OrderType: btn_event, ID: AssignedElevID}
-				ch_newOrderAssigned <- send_msg
+				ch_assignedOrder <- types.AssignedOrder{OrderType: btn_event, ID: AssignedElevID}
 			}
-
-		case peerAvailability = <-ch_peerUpdate:
-
 		}
 	}
 }

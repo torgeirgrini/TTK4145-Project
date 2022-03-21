@@ -8,7 +8,7 @@ func PeriodicTransmit(
 		select {
 		case LocalState := <-ch_newLocalState:
 			_ = LocalState
-		case <-time.After(config.TransmitInterval * time.Millisecond):
+		case <-time.After(config.TransmitInterval_ms * time.Millisecond):
 		}
 		//msgstruct := createMsgStruct()
 		//ch_TxNewElevatorMessage <- msgstruct
@@ -85,3 +85,12 @@ func createMsgStruct(id string, hallCalls [config.NumFloors][config.NumButtons -
 				}
 				HallCalls := hallRequestsFromESM(a)
 				CostFnInput := HRAInput{HallCalls,}*/
+
+
+// case peerUpdate := <-ch_peerUpdate:
+		// 	fmt.Printf("Peer update:\n")
+		// 	fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
+		// 	fmt.Printf("  New:      %q\n", peerUpdate.New)
+		// 	fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
+		// 	//Må si ifra om at noen har kommet på/fallt av nettet
+		// 	//Kan for eksmpel gjøres ved å sette available bit i elevators(ESM'en)

@@ -5,6 +5,7 @@ import (
 	"Project/localElevator/elevio"
 	"Project/localElevator/requests"
 	"Project/types"
+	"Project/utilities"
 	"fmt"
 	"time"
 )
@@ -31,11 +32,11 @@ func Fsm_OnInitArrivedAtFloor(e *types.Elevator, currentFloor int) {
 	elevio.SetFloorIndicator(currentFloor)
 }
 
-func RunElevator(
-	ch_newAssignedOrder <-chan elevio.ButtonEvent,
-	ch_FloorArrival <-chan int,
-	ch_Obstruction <-chan bool,
-	ch_localElevatorStruct chan<- types.Elevator) {
+func RunLocalElevator(
+	ch_newLocalOrder <-chan elevio.ButtonEvent,
+	ch_hwFloor <-chan int,
+	ch_hwObstruction <-chan bool,
+	ch_localElevatorState chan<- types.Elevator) {
 
 	//Initialize
 	e := types.InitElev()
@@ -44,32 +45,29 @@ func RunElevator(
 	elevio.SetMotorDirection(elevio.MD_Stop)
 
 	Fsm_OnInitBetweenFloors(&e)
-	ch_localElevatorStruct <- e
 
-	currentFloor := <-ch_FloorArrival
-	fmt.Println("Floor:", currentFloor)
+	currentFloor := <-ch_hwFloor
 	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
-	ch_localElevatorStruct <- e
 
 	//Initialize Timers
-	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration) * time.Second)
+	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
-	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod) * time.Millisecond)
+	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod_ms) * time.Millisecond)
 	// ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
 	for {
-		types.PrintElevator(e)
-		ch_localElevatorStruct <- types.Dup(e)
+		//types.PrintElevator(e)
+		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 
 		select {
-		case newOrder := <-ch_newAssignedOrder:
+		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("Order received: Order {Floor, Type}:", newOrder)
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 				}
@@ -85,7 +83,7 @@ func RunElevator(
 				switch action.Behaviour {
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					requests.Requests_clearAtCurrentFloor(&e)
 
 				case types.EB_Moving:
@@ -97,7 +95,7 @@ func RunElevator(
 			}
 			SetAllLights(e)
 
-		case newFloor := <-ch_FloorArrival:
+		case newFloor := <-ch_hwFloor:
 			fmt.Println("Floor:", newFloor)
 			e.Floor = newFloor
 			elevio.SetFloorIndicator(e.Floor)
@@ -108,7 +106,7 @@ func RunElevator(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					requests.Requests_clearAtCurrentFloor(&e)
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
 				}
@@ -119,7 +117,6 @@ func RunElevator(
 
 		case <-ch_doorTimer:
 			if !obstruction {
-				fmt.Println("Timer timed out")
 				switch e.Behaviour {
 				case types.EB_DoorOpen:
 					action := requests.Requests_nextAction(e)
@@ -128,7 +125,7 @@ func RunElevator(
 
 					switch e.Behaviour {
 					case types.EB_DoorOpen:
-						DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 						requests.Requests_clearAtCurrentFloor(&e)
 						SetAllLights(e)
 					case types.EB_Moving:
@@ -141,9 +138,9 @@ func RunElevator(
 
 			}
 
-		case obstruction = <-ch_Obstruction:
+		case obstruction = <-ch_hwObstruction:
 			if !obstruction {
-				DoorTimer.Reset(time.Duration(config.DoorOpenDuration) * time.Second)
+				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			}
 
 		}
