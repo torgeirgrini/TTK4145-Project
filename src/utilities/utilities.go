@@ -21,14 +21,12 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2 := types.InitElev()
 	e2.Floor = e.Floor
 	e2.Dirn = e.Dirn
-	e2.Requests = e.Requests
 	e2.Behaviour = e.Behaviour
 	e2.ClearRequestVariant = e.ClearRequestVariant
-
-	for floor := 0; floor < config.NumFloors; floor++ {
-		for button, _ := range e.Requests[floor] {
-			e2.Requests[floor][button] = e.Requests[floor][button]
-		}
+	e2.Requests = make([][]bool, len(e.Requests))
+	for i := range e.Requests{
+    	e2.Requests[i] = make([]bool, len(e.Requests[i]))
+    	copy(e2.Requests[i], e.Requests[i])
 	}
 	return e2
 }

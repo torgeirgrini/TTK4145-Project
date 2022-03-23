@@ -28,6 +28,7 @@ func Distribution(
 	ch_rxNetworkMsg := make(chan types.NetworkMessage)
 	ch_newAssignedOrderToNetwork := make(chan types.AssignedOrder)
 	ch_readNewOrderFromNetwork := make(chan types.AssignedOrder)
+
 	go bcast.Transmitter(config.PortBroadcast, ch_txNetworkMsg, ch_newAssignedOrderToNetwork)
 	go bcast.Receiver(config.PortBroadcast, ch_rxNetworkMsg, ch_readNewOrderFromNetwork)
 
@@ -60,7 +61,9 @@ func Distribution(
 
 			if newAssignedOrder.ID == localID {
 				ch_newLocalOrder <- newAssignedOrder.OrderType
-			} else {
+
+			} 
+			if newAssignedOrder.OrderType.Button != elevio.BT_Cab {
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
@@ -70,14 +73,14 @@ func Distribution(
 				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
 
-		case e := <-ch_localElevatorState:
+		case e := <-ch_localElevatorState: //change this to compl orders and move this channel to assigner
 			if !reflect.DeepEqual(elevators[localID], e) {
 				elevators[localID] = utilities.DeepCopyElevatorStruct(e)
 				ch_informationToAssigner <- types.AssignerMessage{
 					PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
-				setHallCalllights(elevators)
+				//setHallCalllights(elevators)
 			}
 
 		case <-tick.C:
@@ -92,21 +95,21 @@ func Distribution(
 					for btn, remote_hc := range remote.HallCalls[floor] {
 						if remote_hc.ExecutorID == localID && remote_hc.OrderState == types.OS_UNCONFIRMED {
 							Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
-							ch_newLocalOrder <- elevio.ButtonEvent{
+							/*ch_newLocalOrder <- elevio.ButtonEvent{
 								Floor:  floor,
 								Button: elevio.ButtonType(btn),
-							}
+							}*/
 						}
 					}
 				}
 			}
 			if !reflect.DeepEqual(elevators[remote.ID], remote.ElevState) {
-				elevators[remote.ID] = remote.ElevState
+				elevators[remote.ID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
 				ch_informationToAssigner <- types.AssignerMessage{
 					PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
-				setHallCalllights(elevators)
+				//setHallCalllights(elevators)
 			}
 		case peerAvailability = <-ch_peerUpdate:
 			fmt.Printf("Peer update:\n")
@@ -177,3 +180,61 @@ func sameStringSlice(x, y []string) bool {
 	}
 	return false
 }
+
+
+
+
+
+/*
+
+
+array of these:
+struct {
+	state : none, unconfirmed, confirmed, completed
+	map[string]struct{} : acks
+	assignedTo string/id
+}
+
+prevLocalOrders [][]bool
+
+recv from remote: (locally spawned bcast.receiver)
+	(ignore msg from self)
+	foreach floor, 	foreach button
+		v ours | remote >	completed 	unconfirmed 	confirmed 	unknown
+		completed			--- 		unconf, +ack	--- 		--- 
+		unconfirmed			--- 		+ack			conf		---
+		confirmed			compl		---				---			---
+		unknown				completed 	unconf, +ack	confirmed	---
+
+
+
+tick: (timer.NewTicker())
+	find any that we can confirm:
+		foreach unconfirmed
+			if all (via peer list) have acked: => confirmed
+	send table on net
+	generate our orders from big table ([][]orderstate (ours && confirmed) => [][]bool)
+		if different from prev => send to whoever needs it (fsm?)
+	generate ALL orders (confirmed)
+		send to lights
+
+
+peer list:	(locally spawned peers.receiver)
+	if alone on net:
+		make all completed into unknown
+
+assigned order	(from assigner)
+	if none => unconfirmed
+
+completed order (from fsm)
+	if confirmed 
+		state none, clear ack list
+
+
+
+
+
+
+
+
+*/

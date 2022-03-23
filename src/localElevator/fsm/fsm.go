@@ -83,7 +83,7 @@ func RunLocalElevator(
 					elevio.SetDoorOpenLamp(true)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					requests.Requests_clearAtCurrentFloor(&e)
-
+					//Sende orderCompleted?
 				case types.EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
 
@@ -107,6 +107,8 @@ func RunLocalElevator(
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
+					//Sende orderCompleted?
+
 				}
 
 			default:
@@ -126,6 +128,8 @@ func RunLocalElevator(
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 						requests.Requests_clearAtCurrentFloor(&e)
 						SetAllLights(e)
+						//Sende orderCompleted?
+
 					case types.EB_Moving:
 						fallthrough
 					case types.EB_Idle:

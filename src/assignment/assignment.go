@@ -45,8 +45,11 @@ func Assignment(
 			} else {
 
 				AssignedElevID := localID
+				fmt.Println("Actual elev: ", elevatorMap[AssignedElevID].Requests)
 				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
+				fmt.Println("Copy elev: ", elev_copy.Requests)
+				fmt.Println("Actual elev2: ", elevatorMap[AssignedElevID].Requests)
 				min_time := costfn.TimeToIdle(elev_copy)
 
 				for _, id := range peerList {
