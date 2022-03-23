@@ -18,9 +18,7 @@ func Fsm_OnInitBetweenFloors(e *types.Elevator) {
 
 func SetAllLights(elev types.Elevator) {
 	for floor := 0; floor < config.NumFloors; floor++ {
-		for btn := 0; btn < config.NumButtons; btn++ {
-			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, elev.Requests[floor][btn])
-		}
+		elevio.SetButtonLamp(elevio.BT_Cab, floor, elev.Requests[floor][elevio.BT_Cab])
 	}
 }
 
