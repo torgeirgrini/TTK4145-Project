@@ -36,7 +36,9 @@ func RunLocalElevator(
 	ch_newLocalOrder <-chan elevio.ButtonEvent,
 	ch_hwFloor <-chan int,
 	ch_hwObstruction <-chan bool,
-	ch_localElevatorState chan<- types.Elevator) {
+	ch_localElevatorState chan<- types.Elevator,
+	ch_localOrderCompleted chan<- elevio.ButtonEvent,
+	) {
 
 	//Initialize
 	e := types.InitElev()
@@ -82,8 +84,16 @@ func RunLocalElevator(
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
-					//Sende orderCompleted?
+					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
+					for i := range diff {
+						for j := 0; j < config.NumButtons-1; j++ {
+							if diff[i][j] {
+								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
+							}
+						}
+					}
 				case types.EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
 
@@ -103,7 +113,16 @@ func RunLocalElevator(
 				if requests.Requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
+					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
+					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
+					for i := range diff {
+						for j := 0; j < config.NumButtons-1; j++ {
+							if diff[i][j] {
+								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
+							}
+						}
+					}
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
@@ -126,7 +145,16 @@ func RunLocalElevator(
 					switch e.Behaviour {
 					case types.EB_DoorOpen:
 						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-						requests.Requests_clearAtCurrentFloor(&e)
+						requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
+					    requests.Requests_clearAtCurrentFloor(&e)
+					    diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
+					    for i := range diff {
+						    for j := 0; j < config.NumButtons-1; j++ {
+							   if diff[i][j] {
+								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
+							   }
+						    }
+					    }
 						SetAllLights(e)
 						//Sende orderCompleted?
 

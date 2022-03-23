@@ -57,3 +57,18 @@ func DeepCopyStringSlice(slice []string, length int) []string {
 	}
 	return copied
 }
+
+func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool{
+	DiffMatrix := make([][]bool, len(m1))
+	for i := range m1{
+		DiffMatrix[i] = make([]bool, len(m1[1]))
+		for j := range m1[i] {
+			if m1[i][j] != m2[i][j] {
+				DiffMatrix[i][j] = true
+			} else {
+				DiffMatrix[i][j] = false
+			}
+		}
+	}
+	return DiffMatrix
+}

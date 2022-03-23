@@ -25,9 +25,13 @@ func Assignment(
 ) {
 
 	assignerMsg := types.AssignerMessage{}
-	elevatorMap := make(map[string]types.Elevator)
+	var elevatorMap map[string]types.Elevator
+	
 	var peerList []string
-
+	assignerMsg = <-ch_informationToAssigner
+	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
+	peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
+	
 	for {
 
 		select {
@@ -45,11 +49,8 @@ func Assignment(
 			} else {
 
 				AssignedElevID := localID
-				fmt.Println("Actual elev: ", elevatorMap[AssignedElevID].Requests)
 				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
-				fmt.Println("Copy elev: ", elev_copy.Requests)
-				fmt.Println("Actual elev2: ", elevatorMap[AssignedElevID].Requests)
 				min_time := costfn.TimeToIdle(elev_copy)
 
 				for _, id := range peerList {

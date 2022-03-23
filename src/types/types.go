@@ -25,10 +25,10 @@ type AssignedOrder struct {
 
 type OrderState int
 const (
-	OS_NONE OrderState = iota
+	OS_COMPLETED OrderState = iota
 	OS_UNCONFIRMED
 	OS_CONFIRMED
-	OS_COMPLETED
+	OS_UNKNOWN
 )
 
 type HallCall struct {
