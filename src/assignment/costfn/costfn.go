@@ -5,7 +5,6 @@ import (
 	"Project/localElevator/elevio"
 	"Project/localElevator/requests"
 	"Project/types"
-	"fmt"
 	"time"
 )
 
@@ -33,7 +32,6 @@ func TimeToIdle(e types.Elevator) int {
 			duration += int(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			e.Dirn = requests.Requests_nextAction(e).Dirn
 			if e.Dirn == elevio.MD_Stop {
-				fmt.Println(duration)
 				return duration
 
 			}

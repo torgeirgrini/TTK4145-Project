@@ -27,8 +27,6 @@ func Assignment(
 	assignerMsg := types.AssignerMessage{}
 	elevatorMap := make(map[string]types.Elevator)
 	var peerList []string
-	//fmt.Printf("Assign elevators: %p, %#+v\n", elevatorMap, elevatorMap)
-	//btn_event := elevio.ButtonEvent{}
 
 	for {
 
@@ -36,12 +34,8 @@ func Assignment(
 		case assignerMsg = <-ch_informationToAssigner:
 			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
 			peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
-			//fmt.Printf("assign | new elevators: %+v\n", elevatorMap)
-			//fmt.Printf("Assign elevators (after copy): %p, %#+v\n", elevatorMap, elevatorMap)
-
-			//Videresend til assigner sånn at den kan regne ut
 		case btn_event := <-ch_hwButtonPress:
-			//Here we need to calcilate the cost functin
+			
 			if btn_event.Button == elevio.BT_Cab {
 				ch_assignedOrder <- types.AssignedOrder{
 					OrderType: btn_event,
@@ -51,17 +45,11 @@ func Assignment(
 			} else {
 
 				AssignedElevID := localID
-
-				fmt.Println("Peerlist: ", peerList)
-				fmt.Println("Buttonevent")
-				fmt.Printf("assign | elevators | %+#v\n", elevatorMap)
 				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
-				fmt.Printf("assign | elev copy | %+#v\n", elev_copy)
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(elev_copy)
 
 				for _, id := range peerList {
-					fmt.Println("ID:", id)
 					elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
 					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 					if costfn.TimeToIdle(elev_copy) < min_time {
