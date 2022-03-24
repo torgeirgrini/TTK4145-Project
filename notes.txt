@@ -37,5 +37,6 @@ go run main.go --id id3 -p 21212
 Reassign:
 
 -Alle tar over alle
+-Kan da egt fjerne assignerID
 
 

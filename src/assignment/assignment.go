@@ -4,6 +4,7 @@ import (
 	"Project/assignment/costfn"
 	"Project/config"
 	"Project/localElevator/elevio"
+	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
 	"fmt"
@@ -24,36 +25,44 @@ func Assignment(
 	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
-	assignerMsg := types.AssignerMessage{}
 	var elevatorMap map[string]types.Elevator
-	
-	var peerList []string
+	var peerUpdate peers.PeerUpdate
+
+	//wait for distribution to send information before assigning
+	assignerMsg := types.AssignerMessage{}
 	assignerMsg = <-ch_informationToAssigner
+
 	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-	peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
+	peerUpdate = assignerMsg.PeerStatus 
 	
 	for {
 
+	
 		select {
+			//update information from distribtion
 		case assignerMsg = <-ch_informationToAssigner:
 			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-			peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
+			peerUpdate = assignerMsg.PeerStatus
+
+			//hardware button press
 		case btn_event := <-ch_hwButtonPress:
-			
+
+			//if cab call
 			if btn_event.Button == elevio.BT_Cab {
+				//send directly to distributor
 				ch_assignedOrder <- types.AssignedOrder{
 					OrderType: btn_event,
 					ID:        localID,
 				}
 
 			} else {
-
+				//run cost function on all elevators, assign to lowest return value
 				AssignedElevID := localID
 				elev_copy := utilities.DeepCopyElevatorStruct(elevatorMap[AssignedElevID])
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(elev_copy)
 
-				for _, id := range peerList {
+				for _, id := range peerUpdate.Peers {
 					elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
 					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 					if costfn.TimeToIdle(elev_copy) < min_time {
@@ -64,6 +73,20 @@ func Assignment(
 				fmt.Println("Assigned elevator: ", AssignedElevID)
 
 				ch_assignedOrder <- types.AssignedOrder{OrderType: btn_event, ID: AssignedElevID}
+			}
+		default: 
+		
+			if len(peerUpdate.Lost) != 0 {
+			//reassign orders to myself
+				for _, elev := range peerUpdate.Lost {
+					for i := 0; i < config.NumFloors; i++ {
+						for j:=0; j<config.NumButtons-1; j++ {
+							if elevatorMap[elev].Requests[i][j] {
+								ch_assignedOrder <- types.AssignedOrder{OrderType: elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}, ID: localID}
+							}
+						}
+					}
+				}
 			}
 		}
 	}

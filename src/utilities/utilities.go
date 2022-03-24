@@ -24,9 +24,9 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2.Behaviour = e.Behaviour
 	e2.ClearRequestVariant = e.ClearRequestVariant
 	e2.Requests = make([][]bool, len(e.Requests))
-	for i := range e.Requests{
-    	e2.Requests[i] = make([]bool, len(e.Requests[i]))
-    	copy(e2.Requests[i], e.Requests[i])
+	for i := range e.Requests {
+		e2.Requests[i] = make([]bool, len(e.Requests[i]))
+		copy(e2.Requests[i], e.Requests[i])
 	}
 	return e2
 }
@@ -58,9 +58,9 @@ func DeepCopyStringSlice(slice []string, length int) []string {
 	return copied
 }
 
-func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool{
+func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	DiffMatrix := make([][]bool, len(m1))
-	for i := range m1{
+	for i := range m1 {
 		DiffMatrix[i] = make([]bool, len(m1[1]))
 		for j := range m1[i] {
 			if m1[i][j] != m2[i][j] {
@@ -71,4 +71,26 @@ func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool{
 		}
 	}
 	return DiffMatrix
+}
+
+func GenerateOrders(hc [][]types.HallCall, elevatorID string) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_CONFIRMED)
+		}
+	}
+	return orderMatrix
+}
+
+func GenerateAllOrders(hc [][]types.HallCall) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
+		}
+	}
+	return orderMatrix
 }
