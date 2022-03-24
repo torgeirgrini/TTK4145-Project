@@ -124,8 +124,6 @@ func RunLocalElevator(
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetAllLights(e)
 					e.Behaviour = types.EB_DoorOpen
-					//Sende orderCompleted?
-
 				}
 
 			default:
@@ -134,7 +132,7 @@ func RunLocalElevator(
 
 		case <-ch_doorTimer:
 			if !obstruction {
-				switch e.Behaviour {
+				switch e.Behaviour { //switch med bare en case?? Endre til if?
 				case types.EB_DoorOpen:
 					action := requests.Requests_nextAction(e)
 					e.Dirn = action.Dirn
@@ -154,8 +152,6 @@ func RunLocalElevator(
 						    }
 					    }
 						SetAllLights(e)
-						//Sende orderCompleted?
-
 					case types.EB_Moving:
 						fallthrough
 					case types.EB_Idle:
@@ -163,14 +159,12 @@ func RunLocalElevator(
 						elevio.SetMotorDirection(e.Dirn)
 					}
 				}
-
 			}
 
 		case obstruction = <-ch_hwObstruction:
 			if !obstruction {
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			}
-
 		}
 	}
 }
