@@ -44,6 +44,7 @@ func Distribution(
 
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
+	//init Hallcalls
 	Hallcalls := make([][]types.HallCall, config.NumFloors)
 	for i := range Hallcalls {
 		Hallcalls[i] = make([]types.HallCall, config.NumButtons-1)
@@ -52,6 +53,7 @@ func Distribution(
 		}
 	}
 
+	//init previous local orders
 	for i := range prevLocalOrders {
 		prevLocalOrders[i] = make([]bool, config.NumButtons-1)
 		for j := range prevLocalOrders[i] {
@@ -59,59 +61,76 @@ func Distribution(
 		}
 	}
 
-	//Wait til elevator initialized
 	peerAvailability = <-ch_peerUpdate
 	elevators[localID] = <-ch_localElevatorState
+
 	ch_informationToAssigner <- types.AssignerMessage{
-		PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers),
+		PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
+			Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
+			New:  peerAvailability.New},
 		ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 	}
 	for {
 		select {
 		case newAssignedOrder := <-ch_assignedOrder:
+
+
+			//new order for local elevator, gir dette mening? Skal vi sende den før den er confirmed?
 			if newAssignedOrder.ID == localID {
 				ch_newLocalOrder <- newAssignedOrder.OrderType
 
-
-			if newAssignedOrder.OrderType.Button != elevio.BT_Cab && 
-				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED || 
-					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN ){
+			} //Se på logikken på hvor denne skal være
+			if newAssignedOrder.OrderType.Button != elevio.BT_Cab &&
+				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED ||
+					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
+
+				//write our ID on the ack list
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList =
 					append(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList, localID)
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList =
 					removeDuplicates(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList)
 			}
-
+			//send message to network
 			ch_txNetworkMsg <- types.NetworkMessage{ID: localID,
 				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
 				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
 
 		case e := <-ch_localElevatorState: //change this to compl orders and move this channel to assigner
+
+			//only update when we get something new
 			if !reflect.DeepEqual(elevators[localID], e) {
 				elevators[localID] = utilities.DeepCopyElevatorStruct(e)
+
+				//send new information to assigner
 				ch_informationToAssigner <- types.AssignerMessage{
-					PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers),
+					PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
+						Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
+						New:  peerAvailability.New},
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
 			}
 			
 		case localCompletedOrder := <-ch_localOrderCompleted:
+			//removed this if because of bug when we gave an order in the same floor as the elevator. The order would not be confirmed before the elevator completed it and then the acklist would not be cleared
 			//if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
+
+			//set order as completed, clear order
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_COMPLETED
-			//fmt.Println(Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList)
+			fmt.Println(Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList)
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList = make([]string, 0)
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].ExecutorID = ""
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AssignerID = ""
-			//fmt.Println("I removed3")
 			//}
-			//fmt.Println("Completed orders: ", localCompletedOrder, Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button])
+			fmt.Println("Completed orders: ", localCompletedOrder, Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button])
 
 		case <-tick.C:
-			// confirm orders that have a full ack list
+			fmt.Println(Hallcalls)
+
+			//confirm orders that have a full ack list
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
 					if hc.OrderState == types.OS_UNCONFIRMED && equalStringSlice(peerAvailability.Peers, hc.AckList) {
@@ -119,20 +138,29 @@ func Distribution(
 					}
 				}
 			}
+			//send message to network
 			ch_txNetworkMsg <- types.NetworkMessage{
 				ID:        localID,
 				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
 				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
-			fmt.Println("hc1: ",Hallcalls)
-			ourOrders := generateOurHallcalls(Hallcalls, localID)
-			allOrders := generateAllHallcalls(Hallcalls)
+
+			//extract the local elevators hallcalls from Hallcalls, make bool matrix
+			ourOrders := utilities.GenerateOrders(Hallcalls, localID)
+			//extract  all hallcalls from Hallcalls, make bool matrix
+			allOrders := utilities.GenerateAllOrders(Hallcalls)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
+
+					//check if we have any new orders for us from the network
 					if prevLocalOrders[floor][btn] != ourOrders[floor][btn] && hc.ExecutorID == localID {
 						ch_newLocalOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
 					}
 					prevLocalOrders[floor][btn] = ourOrders[floor][btn]
+
+					//set lights
+					//må se på button light contract
+
 					elevio.SetButtonLamp(elevio.ButtonType(btn), floor, allOrders[floor][btn])
 				}
 			}
@@ -148,6 +176,8 @@ func Distribution(
 					}
 				}
 			}
+
+			//reminder to make functions out ack, add order, clear order
 		case remote := <-ch_rxNetworkMsg:
 			if remote.ID != localID {
 				for floor := 0; floor < config.NumFloors; floor++ {
@@ -156,7 +186,9 @@ func Distribution(
 						case types.OS_COMPLETED:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_COMPLETED:
+
 							case types.OS_UNCONFIRMED:
+								//add order to Hallcalls, and ack
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
 								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
@@ -174,19 +206,22 @@ func Distribution(
 							case types.OS_COMPLETED:
 								//
 							case types.OS_CONFIRMED:
+								//confirm order, and ack, do we need this?
 								Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
 								fallthrough
 							case types.OS_UNCONFIRMED:
+								//ack
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
 								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
-								//Hallcalls[floor][btn].AckList = make([]string, 0)
+
 							case types.OS_UNKNOWN:
 								//
 							}
 						case types.OS_CONFIRMED:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_COMPLETED:
+								//change to completed and clear order
 								Hallcalls[floor][btn].OrderState = types.OS_COMPLETED
 								Hallcalls[floor][btn].AckList = make([]string, 0)
 								Hallcalls[floor][btn].ExecutorID = ""
@@ -201,19 +236,24 @@ func Distribution(
 						case types.OS_UNKNOWN:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_COMPLETED:
+								//change to completed, clear order
 								Hallcalls[floor][btn].OrderState = types.OS_COMPLETED
 								Hallcalls[floor][btn].AckList = make([]string, 0)
 								Hallcalls[floor][btn].ExecutorID = ""
 								Hallcalls[floor][btn].AssignerID = ""
 							case types.OS_UNCONFIRMED:
+								//add order, and ack
 								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
 								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
 							case types.OS_CONFIRMED:
+								//confirm
 								Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
 								//Hallcalls[floor][btn].AckList = make([]string, 0)
 							case types.OS_UNKNOWN:
+								//needed this because of scenario where the elevators are initialized simultaneously, and the peer list is not updated before the tick sets all orders to unknown
+								//recieving unknown means there is another elevator sending, so orders should be set to completed
 								Hallcalls[floor][btn].OrderState = types.OS_COMPLETED
 							}
 						}
@@ -221,9 +261,16 @@ func Distribution(
 				}
 			}
 
+			//update elevator map with new information from remote
 			if !reflect.DeepEqual(elevators[remote.ID], remote.ElevState) {
 				elevators[remote.ID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
-
+				//send information to assigner
+				ch_informationToAssigner <- types.AssignerMessage{
+					PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
+						Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
+						New:  peerAvailability.New},
+					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
+				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
 			fmt.Printf("Peer update:\n")
@@ -271,6 +318,7 @@ func equalStringSlice(x, y []string) bool {
 	}
 	return len(diff) == 0
 }
+
 
 func generateOurHallcalls(hc [][]types.HallCall, localID string) [][]bool {
 	orderMatrix := make([][]bool, config.NumFloors)

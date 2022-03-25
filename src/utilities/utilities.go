@@ -72,3 +72,25 @@ func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	}
 	return DiffMatrix
 }
+
+func GenerateOrders(hc [][]types.HallCall, elevatorID string) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_CONFIRMED)
+		}
+	}
+	return orderMatrix
+}
+
+func GenerateAllOrders(hc [][]types.HallCall) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
+		}
+	}
+	return orderMatrix
+}

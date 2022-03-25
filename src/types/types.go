@@ -3,9 +3,11 @@ package types
 import (
 	"Project/config"
 	"Project/localElevator/elevio"
+	"Project/network/peers"
 )
 
 type ElevatorBehaviour int
+
 const (
 	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
@@ -13,6 +15,7 @@ const (
 )
 
 type ClearRequestVariant int
+
 const (
 	CV_All ClearRequestVariant = iota
 	CV_InDirn
@@ -24,6 +27,7 @@ type AssignedOrder struct {
 }
 
 type OrderState int
+
 const (
 	OS_COMPLETED OrderState = iota
 	OS_UNCONFIRMED
@@ -45,8 +49,8 @@ type NetworkMessage struct {
 }
 
 type AssignerMessage struct {
-	PeerList []string
-	ElevatorMap map[string]Elevator 
+	PeerStatus  peers.PeerUpdate
+	ElevatorMap map[string]Elevator
 }
 
 type Action struct {
@@ -55,10 +59,10 @@ type Action struct {
 }
 
 type Elevator struct {
-	Floor     int
-	Dirn      elevio.MotorDirection
-	Requests  [][]bool
-	Behaviour ElevatorBehaviour
+	Floor               int
+	Dirn                elevio.MotorDirection
+	Requests            [][]bool
+	Behaviour           ElevatorBehaviour
 	ClearRequestVariant ClearRequestVariant
 }
 

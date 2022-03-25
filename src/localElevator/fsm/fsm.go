@@ -58,7 +58,7 @@ func RunLocalElevator(
 	//Elevator FSM
 	var obstruction bool = false
 	for {
-		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
+		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
 
 		select {
 		case newOrder := <-ch_newLocalOrder:
