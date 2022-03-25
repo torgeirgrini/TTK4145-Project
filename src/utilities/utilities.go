@@ -41,18 +41,18 @@ func DeepCopyElevatorMap(elevators map[string]types.Elevator) map[string]types.E
 
 func DeepCopyHallCalls(hallcalls [][]types.HallCall) [][]types.HallCall {
 	copied := make([][]types.HallCall, config.NumFloors)
-	for i, _ := range copied {
+	for i := range copied {
 		copied[i] = make([]types.HallCall, config.NumButtons-1)
-		for j, _ := range copied[i] {
+		for j := range copied[i] {
 			copied[i][j] = hallcalls[i][j]
 		}
 	}
 	return copied
 }
 
-func DeepCopyStringSlice(slice []string, length int) []string {
-	copied := make([]string, length)
-	for i, _ := range copied {
+func DeepCopyStringSlice(slice []string) []string {
+	copied := make([]string, len(slice))
+	for i := range copied {
 		copied[i] = slice[i]
 	}
 	return copied

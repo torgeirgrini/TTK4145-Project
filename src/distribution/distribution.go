@@ -61,7 +61,7 @@ func Distribution(
 		}
 	}
 
-	//Wait till elevator initialized
+	peerAvailability = <-ch_peerUpdate
 	elevators[localID] = <-ch_localElevatorState
 
 	ch_informationToAssigner <- types.AssignerMessage{
@@ -74,16 +74,15 @@ func Distribution(
 		select {
 		case newAssignedOrder := <-ch_assignedOrder:
 
+
 			//new order for local elevator, gir dette mening? Skal vi sende den før den er confirmed?
 			if newAssignedOrder.ID == localID {
 				ch_newLocalOrder <- newAssignedOrder.OrderType
 
-			}
+			} //Se på logikken på hvor denne skal være
 			if newAssignedOrder.OrderType.Button != elevio.BT_Cab &&
 				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED ||
 					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
-
-				//assign to correct ID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
@@ -114,6 +113,7 @@ func Distribution(
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
 			}
+			
 		case localCompletedOrder := <-ch_localOrderCompleted:
 			//removed this if because of bug when we gave an order in the same floor as the elevator. The order would not be confirmed before the elevator completed it and then the acklist would not be cleared
 			//if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
@@ -133,7 +133,7 @@ func Distribution(
 			//confirm orders that have a full ack list
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
-					if hc.OrderState == types.OS_UNCONFIRMED && sameStringSlice(peerAvailability.Peers, hc.AckList) {
+					if hc.OrderState == types.OS_UNCONFIRMED && equalStringSlice(peerAvailability.Peers, hc.AckList) {
 						Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
 					}
 				}
@@ -157,15 +157,17 @@ func Distribution(
 						ch_newLocalOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
 					}
 					prevLocalOrders[floor][btn] = ourOrders[floor][btn]
+
 					//set lights
 					//må se på button light contract
+
 					elevio.SetButtonLamp(elevio.ButtonType(btn), floor, allOrders[floor][btn])
 				}
 			}
 
-			// if alone on network, change completed to unknown
-			// we need to check this on tick, not just on peer update
-			if sameStringSlice(peerAvailability.Peers, []string{localID}) {
+
+			// if alone on network, change completed to unknown 
+			if equalStringSlice(peerAvailability.Peers, []string{localID}){
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
 						if hc.OrderState == types.OS_COMPLETED {
@@ -193,6 +195,7 @@ func Distribution(
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
 								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
 								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+
 							case types.OS_CONFIRMED:
 								//
 							case types.OS_UNKNOWN:
@@ -275,33 +278,13 @@ func Distribution(
 			fmt.Printf("  New:      %q\n", peerAvailability.New)
 			fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
 			//fmt.Println("ElevatorMap: ", elevators)
-
-		}
-	}
-}
-
-func setHallCalllights(allElevators map[string]types.Elevator) {
-	hallcalls := HallRequestsFromESM(allElevators)
-	for i := 0; i < config.NumFloors; i++ {
-		for j := 0; j < config.NumButtons-1; j++ {
-			elevio.SetButtonLamp(elevio.ButtonType(j), i, hallcalls[i][j])
-		}
-	}
-}
-
-func HallRequestsFromESM(allElevators map[string]types.Elevator) [][]bool {
-	//var HallCalls [][]HallCall
-	Hallcalls := make([][]bool, config.NumFloors)
-	for i := 0; i < config.NumFloors; i++ {
-		Hallcalls[i] = make([]bool, config.NumButtons-1)
-		for j := 0; j < config.NumButtons-1; j++ {
-			Hallcalls[i][j] = false
-			for _, e := range allElevators {
-				Hallcalls[i][j] = Hallcalls[i][j] || e.Requests[i][j]
+			ch_informationToAssigner <- types.AssignerMessage{
+				PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers),
+				ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 			}
+
 		}
 	}
-	return Hallcalls
 }
 
 func removeDuplicates(s []string) []string {
@@ -316,7 +299,7 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
-func sameStringSlice(x, y []string) bool {
+func equalStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
 		return false
 	}
@@ -333,10 +316,30 @@ func sameStringSlice(x, y []string) bool {
 			delete(diff, _y)
 		}
 	}
-	if len(diff) == 0 {
-		return true
+	return len(diff) == 0
+}
+
+
+func generateOurHallcalls(hc [][]types.HallCall, localID string) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = ((hc[i][j].ExecutorID == localID) && hc[i][j].OrderState == types.OS_CONFIRMED)
+		}
 	}
-	return false
+	return orderMatrix
+}
+
+func generateAllHallcalls(hc [][]types.HallCall) [][]bool {
+	orderMatrix := make([][]bool, config.NumFloors)
+	for i := range orderMatrix {
+		orderMatrix[i] = make([]bool, config.NumButtons-1)
+		for j := range orderMatrix[i] {
+			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
+		}
+	}
+	return orderMatrix
 }
 
 /*
