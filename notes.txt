@@ -40,3 +40,5 @@ Reassign:
 -Kan da egt fjerne assignerID
 
 
+Spørsmål til Anders:
+   - Kan man få packetloss på kun en port av gangen? Med tanke på at vi har separate porter for peers og elevatormsg
