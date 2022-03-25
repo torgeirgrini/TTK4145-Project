@@ -33,7 +33,7 @@ func main() {
 	ch_peerTxEnable := make(chan bool)
 
 	//LocalElevator<-/->Distributor channels
-	ch_newLocalOrder := make(chan elevio.ButtonEvent, 1)
+	ch_newLocalOrder := make(chan elevio.ButtonEvent, 2)
 	ch_localOrderCompleted := make(chan elevio.ButtonEvent, 2)
 	ch_localElevatorState := make(chan types.Elevator, 1)
 

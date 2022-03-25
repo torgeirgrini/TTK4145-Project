@@ -16,7 +16,7 @@ func Fsm_OnInitBetweenFloors(e *types.Elevator) {
 	e.Behaviour = types.EB_Moving
 }
 
-func SetAllLights(elev types.Elevator) {
+func SetCabLights(elev types.Elevator) {
 	for floor := 0; floor < config.NumFloors; floor++ {
 		elevio.SetButtonLamp(elevio.BT_Cab, floor, elev.Requests[floor][elevio.BT_Cab])
 	}
@@ -40,7 +40,7 @@ func RunLocalElevator(
 
 	//Initialize
 	e := types.InitElev()
-	SetAllLights(e)
+	SetCabLights(e)
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Stop)
 
@@ -59,13 +59,17 @@ func RunLocalElevator(
 	var obstruction bool = false
 	for {
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
-
 		select {
 		case newOrder := <-ch_newLocalOrder:
+		
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+					if newOrder.Button != elevio.BT_Cab{
+						ch_localOrderCompleted <- elevio.ButtonEvent{Floor: newOrder.Floor, Button: newOrder.Button}
+					}
+
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 				}
@@ -74,10 +78,13 @@ func RunLocalElevator(
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 
 			case types.EB_Idle:
+
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
-				action := requests.Requests_nextAction(e)
+				action := requests.Requests_nextAction(e, newOrder) //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
+
+
 				switch action.Behaviour {
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
@@ -99,7 +106,7 @@ func RunLocalElevator(
 					break
 				}
 			}
-			SetAllLights(e)
+			SetCabLights(e)
 
 		case newFloor := <-ch_hwFloor:
 			fmt.Println("Floor:", newFloor)
@@ -122,7 +129,7 @@ func RunLocalElevator(
 						}
 					}
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-					SetAllLights(e)
+					SetCabLights(e)
 					e.Behaviour = types.EB_DoorOpen
 				}
 
@@ -134,7 +141,7 @@ func RunLocalElevator(
 			if !obstruction {
 				switch e.Behaviour { //switch med bare en case?? Endre til if?
 				case types.EB_DoorOpen:
-					action := requests.Requests_nextAction(e)
+					action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor:-1, Button: elevio.BT_Cab}) //litt for hard workaround?
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
 
@@ -151,7 +158,7 @@ func RunLocalElevator(
 							   }
 						    }
 					    }
-						SetAllLights(e)
+						SetCabLights(e)
 					case types.EB_Moving:
 						fallthrough
 					case types.EB_Idle:

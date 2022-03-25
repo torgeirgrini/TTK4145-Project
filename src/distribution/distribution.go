@@ -41,6 +41,9 @@ func Distribution(
 	prevLocalOrders := make([][]bool, config.NumFloors)
 
 	//fmt.Printf("Distr elevator: %p, %#+v\n", elevators, elevators)
+	//retning, en i første tar ikke order i første når den tror den er på vei nedover eller noe 
+	//obstruction
+	//huske cabcalls
 
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -65,24 +68,23 @@ func Distribution(
 	elevators[localID] = <-ch_localElevatorState
 
 	ch_informationToAssigner <- types.AssignerMessage{
-		PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
-			Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
-			New:  peerAvailability.New},
+		PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
 		ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 	}
 	for {
+
 		select {
 		case newAssignedOrder := <-ch_assignedOrder:
 
-
 			//new order for local elevator, gir dette mening? Skal vi sende den før den er confirmed?
-			if newAssignedOrder.ID == localID {
+			if newAssignedOrder.ID == localID && newAssignedOrder.OrderType.Button == elevio.BT_Cab {
 				ch_newLocalOrder <- newAssignedOrder.OrderType
 
-			} //Se på logikken på hvor denne skal være
+			} //Se på logikken på hvor denne skal være*/
 			if newAssignedOrder.OrderType.Button != elevio.BT_Cab &&
 				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED ||
-					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
+				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
+
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
@@ -93,6 +95,7 @@ func Distribution(
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList =
 					removeDuplicates(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList)
 			}
+
 			//send message to network
 			ch_txNetworkMsg <- types.NetworkMessage{ID: localID,
 				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
@@ -107,16 +110,14 @@ func Distribution(
 
 				//send new information to assigner
 				ch_informationToAssigner <- types.AssignerMessage{
-					PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
-						Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
-						New:  peerAvailability.New},
+					PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
 			}
-			
+
 		case localCompletedOrder := <-ch_localOrderCompleted:
 			//removed this if because of bug when we gave an order in the same floor as the elevator. The order would not be confirmed before the elevator completed it and then the acklist would not be cleared
-			//if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
+			if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
 
 			//set order as completed, clear order
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_COMPLETED
@@ -124,12 +125,12 @@ func Distribution(
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList = make([]string, 0)
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].ExecutorID = ""
 			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AssignerID = ""
-			//}
+			//fmt.Println("hc in compl order: ", Hallcalls)
+			}
 			fmt.Println("Completed orders: ", localCompletedOrder, Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button])
 
 		case <-tick.C:
 			fmt.Println(Hallcalls)
-
 			//confirm orders that have a full ack list
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
@@ -146,12 +147,14 @@ func Distribution(
 			}
 
 			//extract the local elevators hallcalls from Hallcalls, make bool matrix
-			ourOrders := utilities.GenerateOrders(Hallcalls, localID)
+			ourOrders := utilities.GenerateOurHallcalls(Hallcalls, localID)
 			//extract  all hallcalls from Hallcalls, make bool matrix
-			allOrders := utilities.GenerateAllOrders(Hallcalls)
+			allOrders := utilities.GenerateAllHallcalls(Hallcalls)
+			//fmt.Println("prev: ", prevLocalOrders)
+			//fmt.Println("our: ", ourOrders)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
-
+					
 					//check if we have any new orders for us from the network
 					if prevLocalOrders[floor][btn] != ourOrders[floor][btn] && hc.ExecutorID == localID {
 						ch_newLocalOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
@@ -165,9 +168,8 @@ func Distribution(
 				}
 			}
 
-
-			// if alone on network, change completed to unknown 
-			if equalStringSlice(peerAvailability.Peers, []string{localID}){
+			// if alone on network, change completed to unknown
+			if equalStringSlice(peerAvailability.Peers, []string{localID}) {
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
 						if hc.OrderState == types.OS_COMPLETED {
@@ -266,9 +268,7 @@ func Distribution(
 				elevators[remote.ID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
 				//send information to assigner
 				ch_informationToAssigner <- types.AssignerMessage{
-					PeerStatus: peers.PeerUpdate{Peers: utilities.DeepCopyStringSlice(peerAvailability.Peers, len(peerAvailability.Peers)),
-						Lost: utilities.DeepCopyStringSlice(peerAvailability.Lost, len(peerAvailability.Lost)),
-						New:  peerAvailability.New},
+					PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
 			}
@@ -278,14 +278,40 @@ func Distribution(
 			fmt.Printf("  New:      %q\n", peerAvailability.New)
 			fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
 			//fmt.Println("ElevatorMap: ", elevators)
+			if len(peerAvailability.Lost) != 0 {
+				//reassign orders to myself
+				for _, id := range peerAvailability.Lost {
+					for i := 0; i < config.NumFloors; i++ {
+						for j, hc := range Hallcalls[i] {
+							if hc.ExecutorID == id {
+								switch hc.OrderState {
+								case types.OS_COMPLETED:								
+								case types.OS_UNCONFIRMED:
+									Hallcalls[i][j].ExecutorID = localID
+									Hallcalls[i][j].OrderState = hc.OrderState
+									Hallcalls[i][j].AckList = make([]string, 0)
+									Hallcalls[i][j].AckList = append(Hallcalls[i][j].AckList, localID)
+								case types.OS_CONFIRMED:
+									Hallcalls[i][j].ExecutorID = localID
+									Hallcalls[i][j].OrderState = hc.OrderState
+									Hallcalls[i][j].AckList = make([]string, 0)
+								case types.OS_UNKNOWN:
+								}
+							}
+						}
+					}
+				}
+			}
 			ch_informationToAssigner <- types.AssignerMessage{
-				PeerList:    utilities.DeepCopyStringSlice(peerAvailability.Peers),
+				PeerStatus:    utilities.DeepCopyPeerStatus(peerAvailability),
 				ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 			}
-
 		}
 	}
 }
+
+
+
 
 func removeDuplicates(s []string) []string {
 	inResult := make(map[string]bool)
@@ -320,27 +346,6 @@ func equalStringSlice(x, y []string) bool {
 }
 
 
-func generateOurHallcalls(hc [][]types.HallCall, localID string) [][]bool {
-	orderMatrix := make([][]bool, config.NumFloors)
-	for i := range orderMatrix {
-		orderMatrix[i] = make([]bool, config.NumButtons-1)
-		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = ((hc[i][j].ExecutorID == localID) && hc[i][j].OrderState == types.OS_CONFIRMED)
-		}
-	}
-	return orderMatrix
-}
-
-func generateAllHallcalls(hc [][]types.HallCall) [][]bool {
-	orderMatrix := make([][]bool, config.NumFloors)
-	for i := range orderMatrix {
-		orderMatrix[i] = make([]bool, config.NumButtons-1)
-		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
-		}
-	}
-	return orderMatrix
-}
 
 /*
 

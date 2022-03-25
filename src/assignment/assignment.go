@@ -24,7 +24,6 @@ func Assignment(
 	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
-
 	var elevatorMap map[string]types.Elevator
 	var peerUpdate peers.PeerUpdate
 
@@ -32,19 +31,17 @@ func Assignment(
 	var assignerMsg types.AssignerMessage
 	assignerMsg = <-ch_informationToAssigner
 
-	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-	peerUpdate = assignerMsg.PeerStatus //deepcopy
-	
+	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
+	peerUpdate = utilities.DeepCopyPeerStatus(assignerMsg.PeerStatus) //deepcopy
 
 	for {
 
-	
 		select {
-			//update information from distribtion
+		//update information from distribtion
 		case assignerMsg = <-ch_informationToAssigner:
 
-			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-			peerUpdate = assignerMsg.PeerStatus //deepcopy
+			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
+			peerUpdate = utilities.DeepCopyPeerStatus(assignerMsg.PeerStatus) //deepcopy
 
 			//hardware button press
 		case btn_event := <-ch_hwButtonPress:
@@ -64,7 +61,6 @@ func Assignment(
 				elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(elev_copy)
 
-
 				for _, id := range peerUpdate.Peers {
 					if _, ok := elevatorMap[id]; ok {
 						elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
@@ -79,22 +75,7 @@ func Assignment(
 
 				ch_assignedOrder <- types.AssignedOrder{OrderType: btn_event, ID: AssignedElevID}
 			}
-		default: 
-		
-			if len(peerUpdate.Lost) != 0 {
-			//reassign orders to myself
-				for _, elev := range peerUpdate.Lost {
-					for i := 0; i < config.NumFloors; i++ {
-						for j:=0; j<config.NumButtons-1; j++ {
-							if elevatorMap[elev].Requests[i][j] {
-								ch_assignedOrder <- types.AssignedOrder{OrderType: elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}, ID: localID}
-							}
-						}
-					}
-				}
-			}
+
 		}
 	}
 }
-
-

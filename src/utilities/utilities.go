@@ -2,6 +2,7 @@ package utilities
 
 import (
 	"Project/config"
+	"Project/network/peers"
 	"Project/types"
 	"fmt"
 )
@@ -58,6 +59,14 @@ func DeepCopyStringSlice(slice []string) []string {
 	return copied
 }
 
+func DeepCopyPeerStatus(peerstatus peers.PeerUpdate) peers.PeerUpdate {
+	return peers.PeerUpdate{
+		Peers: DeepCopyStringSlice(peerstatus.Peers),
+		Lost: DeepCopyStringSlice(peerstatus.Lost),
+		New: peerstatus.New,
+	}
+}
+
 func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	DiffMatrix := make([][]bool, len(m1))
 	for i := range m1 {
@@ -73,7 +82,7 @@ func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	return DiffMatrix
 }
 
-func GenerateOrders(hc [][]types.HallCall, elevatorID string) [][]bool {
+func GenerateOurHallcalls(hc [][]types.HallCall, elevatorID string) [][]bool {
 	orderMatrix := make([][]bool, config.NumFloors)
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
@@ -84,7 +93,7 @@ func GenerateOrders(hc [][]types.HallCall, elevatorID string) [][]bool {
 	return orderMatrix
 }
 
-func GenerateAllOrders(hc [][]types.HallCall) [][]bool {
+func GenerateAllHallcalls(hc [][]types.HallCall) [][]bool {
 	orderMatrix := make([][]bool, config.NumFloors)
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
