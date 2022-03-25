@@ -24,9 +24,9 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2.Behaviour = e.Behaviour
 	e2.ClearRequestVariant = e.ClearRequestVariant
 	e2.Requests = make([][]bool, len(e.Requests))
-	for i := range e.Requests{
-    	e2.Requests[i] = make([]bool, len(e.Requests[i]))
-    	copy(e2.Requests[i], e.Requests[i])
+	for i := range e.Requests {
+		e2.Requests[i] = make([]bool, len(e.Requests[i]))
+		copy(e2.Requests[i], e.Requests[i])
 	}
 	return e2
 }
@@ -41,26 +41,26 @@ func DeepCopyElevatorMap(elevators map[string]types.Elevator) map[string]types.E
 
 func DeepCopyHallCalls(hallcalls [][]types.HallCall) [][]types.HallCall {
 	copied := make([][]types.HallCall, config.NumFloors)
-	for i, _ := range copied {
+	for i := range copied {
 		copied[i] = make([]types.HallCall, config.NumButtons-1)
-		for j, _ := range copied[i] {
+		for j := range copied[i] {
 			copied[i][j] = hallcalls[i][j]
 		}
 	}
 	return copied
 }
 
-func DeepCopyStringSlice(slice []string, length int) []string {
-	copied := make([]string, length)
-	for i, _ := range copied {
+func DeepCopyStringSlice(slice []string) []string {
+	copied := make([]string, len(slice))
+	for i := range copied {
 		copied[i] = slice[i]
 	}
 	return copied
 }
 
-func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool{
+func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	DiffMatrix := make([][]bool, len(m1))
-	for i := range m1{
+	for i := range m1 {
 		DiffMatrix[i] = make([]bool, len(m1[1]))
 		for j := range m1[i] {
 			if m1[i][j] != m2[i][j] {

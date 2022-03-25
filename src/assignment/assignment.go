@@ -2,7 +2,6 @@ package assigner
 
 import (
 	"Project/assignment/costfn"
-	"Project/config"
 	"Project/localElevator/elevio"
 	"Project/types"
 	"Project/utilities"
@@ -24,22 +23,23 @@ func Assignment(
 	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
-	assignerMsg := types.AssignerMessage{}
+	var assignerMsg types.AssignerMessage
 	var elevatorMap map[string]types.Elevator
-	
 	var peerList []string
+
 	assignerMsg = <-ch_informationToAssigner
-	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-	peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
-	
+	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
+	peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList)
+
 	for {
 
 		select {
 		case assignerMsg = <-ch_informationToAssigner:
-			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap) 
-			peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList,len(assignerMsg.PeerList)) 
+			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
+			peerList = utilities.DeepCopyStringSlice(assignerMsg.PeerList)
+			fmt.Println("peerlist | assigner", peerList)
 		case btn_event := <-ch_hwButtonPress:
-			
+
 			if btn_event.Button == elevio.BT_Cab {
 				ch_assignedOrder <- types.AssignedOrder{
 					OrderType: btn_event,
@@ -54,11 +54,13 @@ func Assignment(
 				min_time := costfn.TimeToIdle(elev_copy)
 
 				for _, id := range peerList {
-					elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
-					elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
-					if costfn.TimeToIdle(elev_copy) < min_time {
-						AssignedElevID = id
-						min_time = costfn.TimeToIdle(elev_copy)
+					if _, ok := elevatorMap[id]; ok {
+						elev_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
+						elev_copy.Requests[btn_event.Floor][btn_event.Button] = true
+						if costfn.TimeToIdle(elev_copy) < min_time {
+							AssignedElevID = id
+							min_time = costfn.TimeToIdle(elev_copy)
+						}
 					}
 				}
 				fmt.Println("Assigned elevator: ", AssignedElevID)
@@ -69,17 +71,4 @@ func Assignment(
 	}
 }
 
-func HallRequestsFromESM(allElevators map[string]types.Elevator) [][]bool {
-	//var HallCalls [][]HallCall
-	Hallcalls := make([][]bool, config.NumFloors)
-	for i := 0; i < config.NumFloors; i++ {
-		Hallcalls[i] = make([]bool, config.NumButtons-1)
-		for j := 0; j < config.NumButtons-1; j++ {
-			Hallcalls[i][j] = false
-			for _, e := range allElevators {
-				Hallcalls[i][j] = Hallcalls[i][j] || e.Requests[i][j]
-			}
-		}
-	}
-	return Hallcalls
-}
+
