@@ -39,6 +39,7 @@ func RunLocalElevator(
 	) {
 
 	//Initialize
+
 	e := types.InitElev()
 	SetCabLights(e)
 	elevio.SetDoorOpenLamp(false)
@@ -48,7 +49,6 @@ func RunLocalElevator(
 
 	currentFloor := <-ch_hwFloor
 	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
-
 	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
 	DoorTimer.Stop()
