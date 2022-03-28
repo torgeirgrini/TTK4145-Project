@@ -41,7 +41,7 @@ func Distribution(
 	prevLocalOrders := make([][]bool, config.NumFloors)
 
 	//fmt.Printf("Distr elevator: %p, %#+v\n", elevators, elevators)
-	//retning, en i første tar ikke order i første når den tror den er på vei nedover eller noe 
+	//retning, en i første tar ikke order i første når den tror den er på vei nedover eller noe
 	//obstruction
 	//huske cabcalls
 
@@ -64,15 +64,16 @@ func Distribution(
 		}
 	}
 
-	peerAvailability = peers.PeerUpdate{//<-ch_peerUpdate
+	peerAvailability = peers.PeerUpdate{ //<-ch_peerUpdate
 		Peers: []string{localID},
-		New: "",
-		Lost: make([]string, 0),
+		New:   "",
+		Lost:  make([]string, 0),
 	}
 	elevators[localID] = <-ch_localElevatorState
+	fmt.Println(elevators[localID])
 
 	ch_informationToAssigner <- types.AssignerMessage{
-		PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
+		PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 		ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 	}
 	for {
@@ -87,7 +88,7 @@ func Distribution(
 			} //Se på logikken på hvor denne skal være*/
 			if newAssignedOrder.OrderType.Button != elevio.BT_Cab &&
 				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED ||
-				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
+					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
 
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
@@ -101,9 +102,11 @@ func Distribution(
 			}
 
 			//send message to network
-			ch_txNetworkMsg <- types.NetworkMessage{ID: localID,
-				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
-				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
+			ch_txNetworkMsg <- types.NetworkMessage{
+				SenderID:    localID,
+				ElevStateID: localID,
+				HallCalls:   utilities.DeepCopyHallCalls(Hallcalls),
+				ElevState:   utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
 
 		case e := <-ch_localElevatorState: //change this to compl orders and move this channel to assigner
@@ -114,7 +117,7 @@ func Distribution(
 
 				//send new information to assigner
 				ch_informationToAssigner <- types.AssignerMessage{
-					PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
+					PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 					ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 				}
 			}
@@ -123,17 +126,18 @@ func Distribution(
 			//removed this if because of bug when we gave an order in the same floor as the elevator. The order would not be confirmed before the elevator completed it and then the acklist would not be cleared
 			if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
 
-			//set order as completed, clear order
-			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_COMPLETED
-			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList = make([]string, 0)
-			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].ExecutorID = ""
-			Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AssignerID = ""
-			//fmt.Println("hc in compl order: ", Hallcalls)
+				//set order as completed, clear order
+				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_COMPLETED
+				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AckList = make([]string, 0)
+				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].ExecutorID = ""
+				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].AssignerID = ""
+				//fmt.Println("hc in compl order: ", Hallcalls)
 			}
 			fmt.Println("Completed orders: ", localCompletedOrder, Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button])
 
 		case <-tick.C:
-			fmt.Println(Hallcalls)
+			//fmt.Println(Hallcalls)
+			fmt.Println(elevators)
 			//confirm orders that have a full ack list
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
@@ -144,10 +148,12 @@ func Distribution(
 			}
 			//send message to network
 			ch_txNetworkMsg <- types.NetworkMessage{
-				ID:        localID,
-				HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
-				ElevState: utilities.DeepCopyElevatorStruct(elevators[localID]),
+				SenderID:    localID,
+				ElevStateID: localID,
+				HallCalls:   utilities.DeepCopyHallCalls(Hallcalls),
+				ElevState:   utilities.DeepCopyElevatorStruct(elevators[localID]),
 			}
+
 			//fmt.Println(Hallcalls)
 			//extract the local elevators hallcalls from Hallcalls, make bool matrix
 			ourOrders := utilities.GenerateOurHallcalls(Hallcalls, localID)
@@ -157,7 +163,7 @@ func Distribution(
 			//fmt.Println("our: ", ourOrders)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
-					
+
 					//check if we have any new orders for us from the network
 					if prevLocalOrders[floor][btn] != ourOrders[floor][btn] && hc.ExecutorID == localID {
 						ch_newLocalOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
@@ -185,7 +191,7 @@ func Distribution(
 
 			//reminder to make functions out ack, add order, clear order
 		case remote := <-ch_rxNetworkMsg:
-			if remote.ID != localID {
+			if remote.SenderID != localID {
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
 						switch hc.OrderState {
@@ -272,29 +278,45 @@ func Distribution(
 				}
 
 				//update elevator map with new information from remote
-				if !reflect.DeepEqual(elevators[remote.ID], remote.ElevState) {
-					elevators[remote.ID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
-					fmt.Println("ID: ", remote.ID, "Remote Cabcalls", remote.ElevState.Requests)
+				if !reflect.DeepEqual(elevators[remote.ElevStateID], remote.ElevState) {
+					OrMatrix := make([][]bool, len(remote.ElevState.Requests))
+					for i := range elevators[remote.ElevStateID].Requests {
+						OrMatrix[i] = make([]bool, len(remote.ElevState.Requests[1]))
+						for j := range elevators[remote.ElevStateID].Requests[i] {
+							OrMatrix[i][j] = remote.ElevState.Requests[i][j] || elevators[remote.ElevStateID].Requests[i][j]
+						}
+					}
+					//elevators[remote.SenderID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
+					temp := utilities.DeepCopyElevatorStruct(elevators[remote.SenderID])
+					temp.Requests = OrMatrix
+					elevators[remote.ElevStateID] = temp
+					//fmt.Println("ID: ", remote.SenderID, "Remote Cabcalls", remote.ElevState.Requests)
 					//send information to assigner
 					ch_informationToAssigner <- types.AssignerMessage{
-						PeerStatus: utilities.DeepCopyPeerStatus(peerAvailability),
+						PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 						ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 					}
 				}
-			} /*else if remote.ID == localID && peerAvailability.New == localID {
-				elevators[remote.ID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
-				Hallcalls = utilities.DeepCopyHallCalls(remote.HallCalls)
-				for floor := 0; floor < config.NumFloors; floor++ {
-					if elevators[remote.ID].Requests[floor][elevio.BT_Cab] {
-						ch_newLocalOrder <- elevio.ButtonEvent{
-							Floor: floor,
-							Button: elevio.BT_Cab,
+				if remote.ElevStateID == localID && peerAvailability.New == localID {
+
+					temp_elev := utilities.DeepCopyElevatorStruct(elevators[localID])
+					temp_elev.Requests = utilities.DeepCopyElevatorStruct(remote.ElevState).Requests
+					elevators[localID] = utilities.DeepCopyElevatorStruct(temp_elev)
+					fmt.Println("ElevID: ", remote.ElevStateID, "SenderID: ", remote.SenderID)
+					fmt.Println(elevators[localID].Requests)
+					//Hallcalls = utilities.DeepCopyHallCalls(remote.HallCalls)
+					for floor := 0; floor < config.NumFloors; floor++ {
+						if elevators[localID].Requests[floor][elevio.BT_Cab] {
+							ch_newLocalOrder <- elevio.ButtonEvent{
+								Floor:  floor,
+								Button: elevio.BT_Cab,
+							}
 						}
 					}
+					peerAvailability.New = ""
 				}
-				peerAvailability.New = ""
 			}
-			*/
+
 		case peerAvailability = <-ch_peerUpdate:
 			peerAvailability.Peers = removeDuplicates(append(utilities.DeepCopyStringSlice(peerAvailability.Peers), localID))
 			fmt.Printf("Peer update:\n")
@@ -305,33 +327,34 @@ func Distribution(
 			if len(peerAvailability.Lost) != 0 {
 				reassignHallcalls(peerAvailability, Hallcalls, localID) //sjekk om trenger å returnere en hallcalltable
 			}
-			/*
-			if len(peerAvailability.New) != 0 {
+			if peerAvailability.New != localID && peerAvailability.New != "" && len(elevators[peerAvailability.New].Requests) != 0 {
 				//send cabcalls til gjeldende id = peerAvailability.New
-				fmt.Println("Vi er her")
-				ch_txNetworkMsg <- types.NetworkMessage{
-					ID: localID,
-					HallCalls: utilities.DeepCopyHallCalls(Hallcalls),
-					ElevState: utilities.DeepCopyElevatorStruct(elevators[peerAvailability.New]),
+
+				if _, ok := elevators[peerAvailability.New]; ok && len(elevators[peerAvailability.New].Requests[0]) != 0 {
+					ch_txNetworkMsg <- types.NetworkMessage{
+						SenderID:    localID,
+						ElevStateID: peerAvailability.New,
+						HallCalls:   utilities.DeepCopyHallCalls(Hallcalls),
+						ElevState:   utilities.DeepCopyElevatorStruct(elevators[peerAvailability.New]),
+					}
 				}
+
 			}
-			*/
 			ch_informationToAssigner <- types.AssignerMessage{
-				PeerStatus:    utilities.DeepCopyPeerStatus(peerAvailability),
+				PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 				ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 			}
 		}
 	}
 }
 
-
-func reassignHallcalls(peers peers.PeerUpdate, hallCalls [][]types.HallCall, ID string){
+func reassignHallcalls(peers peers.PeerUpdate, hallCalls [][]types.HallCall, ID string) {
 	for _, id := range peers.Lost {
 		for i := 0; i < config.NumFloors; i++ {
 			for j, hc := range hallCalls[i] {
 				if hc.ExecutorID == id {
 					switch hc.OrderState {
-					case types.OS_COMPLETED:								
+					case types.OS_COMPLETED:
 					case types.OS_UNCONFIRMED:
 						hallCalls[i][j].ExecutorID = ID
 						hallCalls[i][j].OrderState = hc.OrderState
@@ -348,9 +371,6 @@ func reassignHallcalls(peers peers.PeerUpdate, hallCalls [][]types.HallCall, ID 
 		}
 	}
 }
-
-
-
 
 func removeDuplicates(s []string) []string {
 	inResult := make(map[string]bool)
@@ -383,8 +403,6 @@ func equalStringSlice(x, y []string) bool {
 	}
 	return len(diff) == 0
 }
-
-
 
 /*
 

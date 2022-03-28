@@ -43,7 +43,8 @@ type HallCall struct {
 }
 
 type NetworkMessage struct {
-	ID        string
+	SenderID        string
+	ElevStateID		string
 	HallCalls [][]HallCall
 	ElevState Elevator
 }
