@@ -37,6 +37,7 @@ func RunLocalElevator(
 	ch_localElevatorState chan<- types.Elevator,
 	ch_localOrderCompleted chan<- elevio.ButtonEvent,
 	ch_peerTxEnable chan<- bool,
+	ch_loneElevator <-chan bool,
 ) {
 
 	//Initialize
@@ -67,9 +68,9 @@ func RunLocalElevator(
 	// ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
+	var loneElevator bool = true
 	for {
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
-		fmt.Println("for")
 		select {
 		case newOrder := <-ch_newLocalOrder:
 			fmt.Println("for2")
@@ -197,17 +198,18 @@ func RunLocalElevator(
 				DoorTimer.Stop()
 				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
 			}
-			
+		case loneElevator = <- ch_loneElevator:
+			fmt.Println(loneElevator)
 		case <-ch_obstructionTimer:
-			fmt.Println("her5")
-			
-			ch_peerTxEnable <- false
-			for floor := 0; floor < config.NumFloors; floor++ {
-				requestMatrix[floor] = make([]bool, config.NumButtons)
-				for button := range requestMatrix[floor] {
-					requestMatrix[floor][button] = false
+			if !loneElevator {
+				for floor := 0; floor < config.NumFloors; floor++ {
+					e.Requests[floor] = make([]bool, config.NumButtons)
+					for button := range e.Requests[floor] {
+						e.Requests[floor][button] = false
+					}
 				}
 			}
+			ch_peerTxEnable <- false
 			
 		//case <-ch_watchDog:
 			//ch_peerTxEnable <- false

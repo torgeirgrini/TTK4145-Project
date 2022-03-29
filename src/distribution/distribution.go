@@ -23,6 +23,7 @@ func Distribution(
 	ch_assignedOrder <-chan types.AssignedOrder,
 	ch_newLocalOrder chan<- elevio.ButtonEvent,
 	ch_localOrderCompleted <-chan elevio.ButtonEvent,
+	ch_loneElevator chan<- bool,
 ) {
 
 	ch_txNetworkMsg := make(chan types.NetworkMessage)
@@ -357,6 +358,11 @@ func Distribution(
 			ch_informationToAssigner <- types.AssignerMessage{
 				PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 				ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
+			}
+			if len(peerAvailability.Peers) > 1 {
+				ch_loneElevator <- false
+			} else {
+				ch_loneElevator <- true
 			}
 		}
 	}
