@@ -58,13 +58,16 @@ func RunLocalElevator(
 	//Elevator FSM
 	var obstruction bool = false
 	for {
+		fmt.Println("Arrived here1")
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
+		fmt.Println("Arrived here2")
 		select {
 		case newOrder := <-ch_newLocalOrder:
 		
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
+					fmt.Println("Cleared Immediately: ", newOrder)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					if newOrder.Button != elevio.BT_Cab{
 						ch_localOrderCompleted <- elevio.ButtonEvent{Floor: newOrder.Floor, Button: newOrder.Button}
@@ -72,13 +75,15 @@ func RunLocalElevator(
 
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
+					fmt.Println("Order added to e.Requests1:", newOrder)
 				}
 
 			case types.EB_Moving:
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
+				fmt.Println("Order added to e.Requests2:", newOrder)
 
 			case types.EB_Idle:
-
+				fmt.Println("Order added to e.Requests3:", newOrder)
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 				action := requests.Requests_nextAction(e, newOrder) //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				e.Dirn = action.Dirn
