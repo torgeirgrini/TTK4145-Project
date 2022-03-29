@@ -42,7 +42,7 @@ func main() {
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
 
-	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState, ch_localOrderCompleted)
+	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState, ch_localOrderCompleted, ch_peerTxEnable)
 	go assigner.Assignment(id, ch_informationToAssigner, ch_hwButtonPress, ch_assignedOrder)
 	go distribution.Distribution(id, ch_localElevatorState, ch_informationToAssigner, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted)
 
