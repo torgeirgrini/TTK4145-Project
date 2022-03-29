@@ -233,9 +233,7 @@ func Distribution(
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
 								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
-								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
 
 							case types.OS_CONFIRMED:
 								//
@@ -252,9 +250,7 @@ func Distribution(
 								fallthrough
 							case types.OS_UNCONFIRMED:
 								//ack
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
-								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
 
 							case types.OS_UNKNOWN:
 								//
@@ -285,17 +281,13 @@ func Distribution(
 							case types.OS_UNCONFIRMED:
 								//add order, and ack
 								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
-								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
 							case types.OS_CONFIRMED:
 								//confirm
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
 								Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList...)
-								Hallcalls[floor][btn].AckList = append(Hallcalls[floor][btn].AckList, localID)
-								Hallcalls[floor][btn].AckList = removeDuplicates(Hallcalls[floor][btn].AckList)
+								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
 								//Hallcalls[floor][btn].AckList = make([]string, 0)
 							case types.OS_UNKNOWN:
 								//needed this because of scenario where the elevators are initialized simultaneously, and the peer list is not updated before the tick sets all orders to unknown
@@ -384,6 +376,11 @@ func reassignHallcalls(peers peers.PeerUpdate, hallCalls [][]types.HallCall, ID 
 			}
 		}
 	}
+}
+func appendToAckList(localHC [][]types.HallCall, remoteHC [][]types.HallCall, floor int, btn int, ID string){
+	localHC[floor][btn].AckList = append(localHC[floor][btn].AckList, remoteHC[floor][btn].AckList...)
+	localHC[floor][btn].AckList = append(localHC[floor][btn].AckList, ID)
+	localHC[floor][btn].AckList = removeDuplicates(localHC[floor][btn].AckList)
 }
 
 func removeDuplicates(s []string) []string {
