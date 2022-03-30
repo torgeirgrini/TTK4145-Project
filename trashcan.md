@@ -103,3 +103,57 @@ for _, AckID := range remote_hc.AckList {
 		alreadyAddedToAckList = true
 	}
 }
+
+/*
+
+
+array of these:
+struct {
+	state : completed, unconfirmed, confirmed, unknown
+	map[string]struct{} : acks
+	assignedTo string/id
+}
+
+prevLocalOrders [][]bool
+
+recv from remote: (locally spawned bcast.receiver)
+	(ignore msg from self)
+	foreach floor, 	foreach button
+		v ours | remote >	completed 	unconfirmed 	confirmed 	unknown
+		completed			--- 		unconf, +ack	--- 		---
+		unconfirmed			--- 		+ack			conf		---
+		confirmed			compl		---				---			---
+		unknown				completed 	unconf, +ack	confirmed	---
+
+
+
+tick: (timer.NewTicker())
+	find any that we can confirm:
+		foreach unconfirmed
+			if all (via peer list) have acked: => confirmed
+	send table on net
+	generate our orders from big table ([][]orderstate (ours && confirmed) => [][]bool)
+		if different from prev => send to whoever needs it (fsm?)
+	generate ALL orders (confirmed)
+		send to lights
+
+
+peer list:	(locally spawned peers.receiver)
+	if alone on net:
+		make all completed into unknown
+
+assigned order	(from assigner)
+	if none => unconfirmed
+
+completed order (from fsm)
+	if confirmed
+		state none, clear ack list
+
+
+
+
+
+
+
+
+*/

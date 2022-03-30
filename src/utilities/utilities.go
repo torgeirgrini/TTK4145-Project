@@ -82,24 +82,34 @@ func DifferenceMatrix(m1 [][]bool, m2 [][]bool) [][]bool {
 	return DiffMatrix
 }
 
-func GenerateOurHallcalls(hc [][]types.HallCall, elevatorID string) [][]bool {
-	orderMatrix := make([][]bool, config.NumFloors)
-	for i := range orderMatrix {
-		orderMatrix[i] = make([]bool, config.NumButtons-1)
-		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_CONFIRMED)
+func EqualStringSlice(x, y []string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	diff := make(map[string]int, len(x))
+	for _, _x := range x {
+		diff[_x]++
+	}
+	for _, _y := range y {
+		if _, ok := diff[_y]; !ok {
+			return false
+		}
+		diff[_y] -= 1
+		if diff[_y] == 0 {
+			delete(diff, _y)
 		}
 	}
-	return orderMatrix
+	return len(diff) == 0
 }
 
-func GenerateAllHallcalls(hc [][]types.HallCall) [][]bool {
-	orderMatrix := make([][]bool, config.NumFloors)
-	for i := range orderMatrix {
-		orderMatrix[i] = make([]bool, config.NumButtons-1)
-		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
+func RemoveDuplicatesSlice(s []string) []string {
+	inResult := make(map[string]bool)
+	var result []string
+	for _, str := range s {
+		if _, ok := inResult[str]; !ok {
+			inResult[str] = true
+			result = append(result, str)
 		}
 	}
-	return orderMatrix
+	return result
 }
