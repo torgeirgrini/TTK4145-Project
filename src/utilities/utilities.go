@@ -23,6 +23,7 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2.Floor = e.Floor
 	e2.Dirn = e.Dirn
 	e2.Behaviour = e.Behaviour
+	e2.Available = e.Available
 	e2.ClearRequestVariant = e.ClearRequestVariant
 	e2.Requests = make([][]bool, len(e.Requests))
 	for i := range e.Requests {

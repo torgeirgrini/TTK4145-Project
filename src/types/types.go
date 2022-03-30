@@ -35,6 +35,14 @@ const (
 	OS_UNKNOWN
 )
 
+type DoorState int
+
+const (
+	DS_Open DoorState = iota
+	DS_Closed
+	DS_Obstructed
+)
+
 type HallCall struct {
 	ExecutorID string
 	AssignerID string
@@ -43,10 +51,10 @@ type HallCall struct {
 }
 
 type NetworkMessage struct {
-	SenderID        string
-	ElevStateID		string
-	HallCalls [][]HallCall
-	ElevState Elevator
+	SenderID    string
+	ElevStateID string
+	HallCalls   [][]HallCall
+	ElevState   Elevator
 }
 
 type AssignerMessage struct {
@@ -64,6 +72,7 @@ type Elevator struct {
 	Dirn                elevio.MotorDirection
 	Requests            [][]bool
 	Behaviour           ElevatorBehaviour
+	Available           bool
 	ClearRequestVariant ClearRequestVariant
 }
 
@@ -80,5 +89,6 @@ func InitElev() Elevator {
 		Dirn:                elevio.MD_Stop,
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
+		Available:           true,
 		ClearRequestVariant: CV_InDirn}
 }
