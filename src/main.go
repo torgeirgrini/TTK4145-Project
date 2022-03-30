@@ -36,15 +36,16 @@ func main() {
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
 	ch_localOrderCompleted := make(chan elevio.ButtonEvent, 2)
 	ch_localElevatorState := make(chan types.Elevator, 1)
+	ch_loneElevator := make(chan bool)
 
 	go elevio.PollButtons(ch_hwButtonPress)
 	go elevio.PollFloorSensor(ch_hwFloor)
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 	go peers.Transmitter(config.PortPeers, id, ch_peerTxEnable)
 
-	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState, ch_localOrderCompleted)
+	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_hwObstruction, ch_localElevatorState, ch_localOrderCompleted, ch_peerTxEnable, ch_loneElevator)
 	go assigner.Assignment(id, ch_informationToAssigner, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_localElevatorState, ch_informationToAssigner, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted)
+	go distribution.Distribution(id, ch_localElevatorState, ch_informationToAssigner, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_loneElevator)
 
 	ch_wait := make(chan bool)
 	<-ch_wait

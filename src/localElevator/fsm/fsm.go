@@ -36,49 +36,66 @@ func RunLocalElevator(
 	ch_hwObstruction <-chan bool,
 	ch_localElevatorState chan<- types.Elevator,
 	ch_localOrderCompleted chan<- elevio.ButtonEvent,
-	) {
+	ch_peerTxEnable chan<- bool,
+	ch_loneElevator <-chan bool,
+) {
 
 	//Initialize
-
 	e := types.InitElev()
 	SetCabLights(e)
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Stop)
-
+	/*
+		WatchDog := time.NewTimer(time.Duration(config.WatchDogBiteTime) * time.Second)
+		WatchDog.Stop()
+		ch_watchDog := WatchDog.C
+	*/
+	//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
 	Fsm_OnInitBetweenFloors(&e)
-
 	currentFloor := <-ch_hwFloor
 	Fsm_OnInitArrivedAtFloor(&e, currentFloor)
+	//WatchDog.Stop()
 	//Initialize Timers
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
+
+	ObstructionTimer := time.NewTimer(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+	ObstructionTimer.Stop()
+	ch_obstructionTimer := ObstructionTimer.C
+
 	// RefreshStateTimer := time.NewTimer(time.Duration(config.RefreshStatePeriod_ms) * time.Millisecond)
 	// ch_RefreshStateTimer := RefreshStateTimer.C
 	//Elevator FSM
 	var obstruction bool = false
+	var loneElevator bool = true
 	for {
+		fmt.Println("Arrived here1")
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
+		fmt.Println("Arrived here2")
 		select {
 		case newOrder := <-ch_newLocalOrder:
-		
+			fmt.Println("for2")
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
 				if requests.Requests_shouldClearImmediately(e, newOrder.Floor, newOrder.Button) {
+					fmt.Println("Cleared Immediately: ", newOrder)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-					if newOrder.Button != elevio.BT_Cab{
+					if newOrder.Button != elevio.BT_Cab {
 						ch_localOrderCompleted <- elevio.ButtonEvent{Floor: newOrder.Floor, Button: newOrder.Button}
+						//Noe watchdog greier på clear immideatly?
 					}
-
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
+					fmt.Println("Order added to e.Requests1:", newOrder)
 				}
 
 			case types.EB_Moving:
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
+				fmt.Println("Order added to e.Requests2:", newOrder)
 
 			case types.EB_Idle:
-
+				fmt.Println("Order added to e.Requests3:", newOrder)
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 				action := requests.Requests_nextAction(e, newOrder) //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				e.Dirn = action.Dirn
@@ -92,6 +109,7 @@ func RunLocalElevator(
 					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 				case types.EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
+					//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
 
 				case types.EB_Idle:
 					break
@@ -108,6 +126,7 @@ func RunLocalElevator(
 			case types.EB_Moving:
 				if requests.Requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
+					//WatchDog.Stop()
 					elevio.SetDoorOpenLamp(true)
 					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
@@ -122,9 +141,18 @@ func RunLocalElevator(
 			}
 
 		case <-ch_doorTimer:
-			if !obstruction {
-				switch e.Behaviour { //switch med bare en case?? Endre til if?
+			fmt.Println("her1")
+			//if !obstruction {
+			fmt.Println("her2")
+			switch e.Behaviour { //switch med bare en case?? Endre til if?
+			case types.EB_DoorOpen:
+				action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor: 0, Button: elevio.BT_Cab}) //litt for hard workaround?
+				e.Dirn = action.Dirn
+				e.Behaviour = action.Behaviour
+
+				switch e.Behaviour {
 				case types.EB_DoorOpen:
+
 					action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor:-1, Button: elevio.BT_Cab}) //litt for hard workaround?
 					e.Dirn = action.Dirn
 					e.Behaviour = action.Behaviour
@@ -136,20 +164,48 @@ func RunLocalElevator(
 					    requests.Requests_clearAtCurrentFloor(&e)
 					    sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 						SetCabLights(e)
-					case types.EB_Moving:
-						fallthrough
-					case types.EB_Idle:
-						elevio.SetDoorOpenLamp(false)
-						elevio.SetMotorDirection(e.Dirn)
+
+				case types.EB_Moving:
+					fallthrough
+				case types.EB_Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(e.Dirn)
+					if e.Dirn != elevio.MD_Stop {
+						//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
+
 					}
 				}
 			}
-
+			//}
+			//vi vil sende unavab på nett når obst+dooropen lenger enn en viss tid
 		case obstruction = <-ch_hwObstruction:
-			if !obstruction {
+			fmt.Println("Obstruction val: ", obstruction) //venter her så lenge obstr er høy
+			if !obstruction {                             //ikke lenger obstr
+				fmt.Println("her3")
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+				ch_peerTxEnable <- true
+				ObstructionTimer.Stop()
+			} else {
+				fmt.Println("her4")
+				DoorTimer.Stop()
+				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
 			}
+		case loneElevator = <-ch_loneElevator:
+			fmt.Println(loneElevator)
+		case <-ch_obstructionTimer:
+			if !loneElevator {
+				for floor := 0; floor < config.NumFloors; floor++ {
+					for button := 0; button < config.NumButtons - 1; button++ {
+						e.Requests[floor][button] = false
+					}
+				}
+			}
+			ch_peerTxEnable <- false
+
+			//case <-ch_watchDog:
+			//ch_peerTxEnable <- false
 		}
+
 	}
 }
 
