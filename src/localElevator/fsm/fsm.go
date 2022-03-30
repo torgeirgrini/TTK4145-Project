@@ -45,11 +45,11 @@ func RunLocalElevator(
 	SetCabLights(e)
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Stop)
-/*
-	WatchDog := time.NewTimer(time.Duration(config.WatchDogBiteTime) * time.Second)
-	WatchDog.Stop()
-	ch_watchDog := WatchDog.C
-*/
+	/*
+		WatchDog := time.NewTimer(time.Duration(config.WatchDogBiteTime) * time.Second)
+		WatchDog.Stop()
+		ch_watchDog := WatchDog.C
+	*/
 	//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
 	Fsm_OnInitBetweenFloors(&e)
 	currentFloor := <-ch_hwFloor
@@ -153,42 +153,42 @@ func RunLocalElevator(
 		case <-ch_doorTimer:
 			fmt.Println("her1")
 			//if !obstruction {
-				fmt.Println("her2")
-				switch e.Behaviour { //switch med bare en case?? Endre til if?
-				case types.EB_DoorOpen:
-					action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}) //litt for hard workaround?
-					e.Dirn = action.Dirn
-					e.Behaviour = action.Behaviour
+			fmt.Println("her2")
+			switch e.Behaviour { //switch med bare en case?? Endre til if?
+			case types.EB_DoorOpen:
+				action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor: 0, Button: elevio.BT_Cab}) //litt for hard workaround?
+				e.Dirn = action.Dirn
+				e.Behaviour = action.Behaviour
 
-					switch e.Behaviour {
-					case types.EB_DoorOpen:
-						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-						requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
-						requests.Requests_clearAtCurrentFloor(&e)
-						diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
-						for i := range diff {
-							for j := 0; j < config.NumButtons-1; j++ {
-								if diff[i][j] {
-									ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
-								}
+				switch e.Behaviour {
+				case types.EB_DoorOpen:
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
+					requests.Requests_clearAtCurrentFloor(&e)
+					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
+					for i := range diff {
+						for j := 0; j < config.NumButtons-1; j++ {
+							if diff[i][j] {
+								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
 							}
 						}
-						SetCabLights(e)
-					case types.EB_Moving:
-						fallthrough
-					case types.EB_Idle:
-						elevio.SetDoorOpenLamp(false)
-						elevio.SetMotorDirection(e.Dirn)
-						if e.Dirn != elevio.MD_Stop {
-							//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
-						}
+					}
+					SetCabLights(e)
+				case types.EB_Moving:
+					fallthrough
+				case types.EB_Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(e.Dirn)
+					if e.Dirn != elevio.MD_Stop {
+						//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
 					}
 				}
+			}
 			//}
 			//vi vil sende unavab på nett når obst+dooropen lenger enn en viss tid
 		case obstruction = <-ch_hwObstruction:
 			fmt.Println("Obstruction val: ", obstruction) //venter her så lenge obstr er høy
-			if !obstruction { //ikke lenger obstr
+			if !obstruction {                             //ikke lenger obstr
 				fmt.Println("her3")
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 				ch_peerTxEnable <- true
@@ -198,22 +198,21 @@ func RunLocalElevator(
 				DoorTimer.Stop()
 				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
 			}
-		case loneElevator = <- ch_loneElevator:
+		case loneElevator = <-ch_loneElevator:
 			fmt.Println(loneElevator)
 		case <-ch_obstructionTimer:
 			if !loneElevator {
 				for floor := 0; floor < config.NumFloors; floor++ {
-					e.Requests[floor] = make([]bool, config.NumButtons)
-					for button := range e.Requests[floor] {
+					for button := 0; button < config.NumButtons - 1; button++ {
 						e.Requests[floor][button] = false
 					}
 				}
 			}
 			ch_peerTxEnable <- false
-			
-		//case <-ch_watchDog:
+
+			//case <-ch_watchDog:
 			//ch_peerTxEnable <- false
 		}
-		
+
 	}
 }

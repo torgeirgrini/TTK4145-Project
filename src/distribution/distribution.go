@@ -77,25 +77,24 @@ func Distribution(
 
 	init := true
 
-
-	for init{
+	for init {
 		select {
 		case <-ch_initTimer:
 			init = false
 		case initState := <-ch_rxNetworkMsg:
-				if initState.ElevStateID == localID {
-					fmt.Println("her")
-					fmt.Println(initState.ElevState.Requests)
-					for floor := 0; floor < config.NumFloors; floor++ {
-						if initState.ElevState.Requests[floor][elevio.BT_Cab] {
-							ch_newLocalOrder <- elevio.ButtonEvent{
-								Floor:  floor,
-								Button: elevio.BT_Cab,
-							}
+			if initState.ElevStateID == localID {
+				fmt.Println("her")
+				fmt.Println(initState.ElevState.Requests)
+				for floor := 0; floor < config.NumFloors; floor++ {
+					if initState.ElevState.Requests[floor][elevio.BT_Cab] {
+						ch_newLocalOrder <- elevio.ButtonEvent{
+							Floor:  floor,
+							Button: elevio.BT_Cab,
 						}
 					}
-					init = false
 				}
+				init = false
+			}
 
 		default:
 
