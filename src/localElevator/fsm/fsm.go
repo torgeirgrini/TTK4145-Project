@@ -100,21 +100,13 @@ func RunLocalElevator(
 				action := requests.Requests_nextAction(e, newOrder) //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
-
 				switch action.Behaviour {
 				case types.EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
+					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
-					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
-					for i := range diff {
-						for j := 0; j < config.NumButtons-1; j++ {
-							if diff[i][j] {
-								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
-							}
-						}
-					}
+					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 				case types.EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
 					//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
@@ -136,16 +128,9 @@ func RunLocalElevator(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					//WatchDog.Stop()
 					elevio.SetDoorOpenLamp(true)
-					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
+					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
-					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
-					for i := range diff {
-						for j := 0; j < config.NumButtons-1; j++ {
-							if diff[i][j] {
-								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
-							}
-						}
-					}
+					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 					SetCabLights(e)
 					e.Behaviour = types.EB_DoorOpen
@@ -167,18 +152,19 @@ func RunLocalElevator(
 
 				switch e.Behaviour {
 				case types.EB_DoorOpen:
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-					requestCopy := utilities.DeepCopyElevatorStruct(e).Requests
-					requests.Requests_clearAtCurrentFloor(&e)
-					diff := utilities.DifferenceMatrix(requestCopy, e.Requests)
-					for i := range diff {
-						for j := 0; j < config.NumButtons-1; j++ {
-							if diff[i][j] {
-								ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
-							}
-						}
-					}
-					SetCabLights(e)
+
+					action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor:-1, Button: elevio.BT_Cab}) //litt for hard workaround?
+					e.Dirn = action.Dirn
+					e.Behaviour = action.Behaviour
+
+					switch e.Behaviour {
+					case types.EB_DoorOpen:
+						DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+						requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
+					    requests.Requests_clearAtCurrentFloor(&e)
+					    sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
+						SetCabLights(e)
+
 				case types.EB_Moving:
 					fallthrough
 				case types.EB_Idle:
@@ -186,6 +172,7 @@ func RunLocalElevator(
 					elevio.SetMotorDirection(e.Dirn)
 					if e.Dirn != elevio.MD_Stop {
 						//WatchDog.Reset(time.Duration(config.WatchDogBiteTime) * time.Second)
+
 					}
 				}
 			}
@@ -221,3 +208,16 @@ func RunLocalElevator(
 
 	}
 }
+
+
+func sendLocalCompletedOrders(reqBeforeClear [][]bool, reqAfterClear [][]bool, ch_localOrderCompleted chan<- elevio.ButtonEvent){
+	diff := utilities.DifferenceMatrix(reqBeforeClear, reqAfterClear)
+	for i := range diff {
+		for j := 0; j < config.NumButtons-1; j++ {
+			if diff[i][j] {
+			ch_localOrderCompleted <- elevio.ButtonEvent{Floor: i, Button: elevio.ButtonType(j)}
+			}
+		}
+	}
+}
+
