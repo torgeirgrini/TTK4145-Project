@@ -23,6 +23,7 @@ func Distribution(
 	ch_assignedOrder <-chan types.AssignedOrder,
 	ch_newLocalOrder chan<- elevio.ButtonEvent,
 	ch_localOrderCompleted <-chan elevio.ButtonEvent,
+	ch_loneElevator chan<- bool,
 ) {
 
 	ch_txNetworkMsg := make(chan types.NetworkMessage)
@@ -76,25 +77,24 @@ func Distribution(
 
 	init := true
 
-
-	for init{
+	for init {
 		select {
 		case <-ch_initTimer:
 			init = false
 		case initState := <-ch_rxNetworkMsg:
-				if initState.ElevStateID == localID {
-					fmt.Println("her")
-					fmt.Println(initState.ElevState.Requests)
-					for floor := 0; floor < config.NumFloors; floor++ {
-						if initState.ElevState.Requests[floor][elevio.BT_Cab] {
-							ch_newLocalOrder <- elevio.ButtonEvent{
-								Floor:  floor,
-								Button: elevio.BT_Cab,
-							}
+			if initState.ElevStateID == localID {
+				fmt.Println("her")
+				fmt.Println(initState.ElevState.Requests)
+				for floor := 0; floor < config.NumFloors; floor++ {
+					if initState.ElevState.Requests[floor][elevio.BT_Cab] {
+						ch_newLocalOrder <- elevio.ButtonEvent{
+							Floor:  floor,
+							Button: elevio.BT_Cab,
 						}
 					}
-					init = false
 				}
+				init = false
+			}
 
 		default:
 
@@ -357,6 +357,11 @@ func Distribution(
 			ch_informationToAssigner <- types.AssignerMessage{
 				PeerStatus:  utilities.DeepCopyPeerStatus(peerAvailability),
 				ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
+			}
+			if len(peerAvailability.Peers) > 1 {
+				ch_loneElevator <- false
+			} else {
+				ch_loneElevator <- true
 			}
 		}
 	}
