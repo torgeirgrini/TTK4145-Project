@@ -31,7 +31,7 @@ func Assignment(
 			AssignedElevID = localID
 			if btn_event.Button != elevio.BT_Cab {
 				for _, id := range peerUpdate.Peers {
-					if _, ok := elevatorMap[id]; ok && elevatorMap[id].Available {
+					if _, ok := elevatorMap[id]; ok {
 						AssignedElevID = id
 					}
 				}
@@ -39,7 +39,7 @@ func Assignment(
 				e_copy.Requests[btn_event.Floor][btn_event.Button] = true
 				min_time := costfn.TimeToIdle(e_copy)
 				for _, id := range peerUpdate.Peers {
-					if _, ok := elevatorMap[id]; ok && elevatorMap[id].Available {
+					if _, ok := elevatorMap[id]; ok {
 						e_copy = utilities.DeepCopyElevatorStruct(elevatorMap[id])
 						e_copy.Requests[btn_event.Floor][btn_event.Button] = true
 						calc_cost := costfn.TimeToIdle(e_copy)

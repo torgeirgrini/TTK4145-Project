@@ -38,9 +38,6 @@ func main() {
 	//dist to assigner
 	ch_peerStatusUpdate := make(chan peers.PeerUpdate)
 
-	//litta satan fra ww til dist
-	ch_reassignHallCalls := make(chan string)
-
 	//LocalElevator<-/->Distributor channels
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
 	ch_localOrderCompleted := make(chan elevio.ButtonEvent, 2)
@@ -61,12 +58,12 @@ func main() {
 	go elevio.PollFloorSensor(ch_hwFloor)
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 
-	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_stuck, ch_setMotorDirn)
+	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn)
 	go motor.Motor(ch_stuck, ch_setMotorDirn)
 	go door.Door(ch_hwObstruction, ch_openDoor, ch_stuck, ch_doorClosed)
 	go assigner.Assignment(id, ch_peerStatusUpdate, ch_elevMapUpdate, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_peerStatusUpdate, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_reassignHallCalls)
-	go worldview.Worldview(id, ch_localElevatorState, ch_elevMapUpdate, ch_newLocalOrder, ch_reassignHallCalls)
+	go distribution.Distribution(id, ch_peerStatusUpdate, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck)
+	go worldview.Worldview(id, ch_localElevatorState, ch_elevMapUpdate, ch_newLocalOrder)
 	ch_wait := make(chan bool)
 	<-ch_wait
 }

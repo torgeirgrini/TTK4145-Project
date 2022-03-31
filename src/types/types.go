@@ -75,7 +75,6 @@ type Elevator struct {
 	Dirn                elevio.MotorDirection
 	Requests            [][]bool
 	Behaviour           ElevatorBehaviour
-	Available           bool
 	ClearRequestVariant ClearRequestVariant
 }
 
@@ -92,6 +91,5 @@ func InitElev() Elevator {
 		Dirn:                elevio.MD_Stop,
 		Requests:            requestMatrix,
 		Behaviour:           EB_Idle,
-		Available:           true,
 		ClearRequestVariant: CV_InDirn}
 }

@@ -15,7 +15,6 @@ func RunLocalElevator(
 	ch_localOrderCompleted chan<- elevio.ButtonEvent,
 	ch_openDoor chan<- bool,
 	ch_doorClosed <-chan bool,
-	ch_stuck <-chan bool,
 	ch_setMotorDirn chan<- elevio.MotorDirection,
 ) {
 
@@ -106,8 +105,6 @@ func RunLocalElevator(
 			case types.EB_Moving:
 			case types.EB_Idle:
 			}
-		case stuck := <-ch_stuck:
-			e.Available = !stuck
 		}
 	}
 }

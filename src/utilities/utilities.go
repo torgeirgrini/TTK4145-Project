@@ -23,7 +23,6 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2.Floor = e.Floor
 	e2.Dirn = e.Dirn
 	e2.Behaviour = e.Behaviour
-	e2.Available = e.Available
 	e2.ClearRequestVariant = e.ClearRequestVariant
 	e2.Requests = make([][]bool, len(e.Requests))
 	for i := range e.Requests {
@@ -114,3 +113,22 @@ func RemoveDuplicatesSlice(s []string) []string {
 	}
 	return result
 }
+
+func ContainsStringSlice(y, x []string) bool {
+	for _, element := range x {
+		containselement := ContainsString(y, element)
+		if !containselement {
+			return false
+		}
+	}
+	return true
+}
+
+func ContainsString(sl []string, name string) bool {
+	for _, value := range sl {
+	   if value == name {
+		  return true
+	   }
+	}
+	return false
+ }

@@ -17,7 +17,6 @@ func Worldview(
 	ch_localElevatorState <-chan types.Elevator,
 	ch_elevMapUpdate chan<- map[string]types.Elevator,
 	ch_newLocalOrder chan<- elevio.ButtonEvent,
-	ch_reassignHallCalls chan<- string,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -31,8 +30,8 @@ func Worldview(
 
 	go bcast.Transmitter(config.PortBroadcast, ch_txElevator)
 	go bcast.Receiver(config.PortBroadcast, ch_rxElevator)
-	go peers.Transmitter(config.PortPeers, localID, ch_peerTxEnable)
-	go peers.Receiver(config.PortPeers, ch_peerUpdate)
+	go peers.Transmitter(config.Prt1, localID, ch_peerTxEnable)
+	go peers.Receiver(config.Prt1, ch_peerUpdate)
 
 	var peerAvailability peers.PeerUpdate
 	peerAvailability = peers.PeerUpdate{
@@ -76,11 +75,6 @@ func Worldview(
 				ch_elevMapUpdate <- utilities.DeepCopyElevatorMap(elevators)
 			}
 		case <-ch_tick:
-			for _, id := range peerAvailability.Peers {
-				if !elevators[id].Available {
-					ch_reassignHallCalls <- id
-				}
-			}
 			ch_txElevator <- types.ElevStateNetMsg{
 				SenderID:    localID,
 				ElevStateID: localID,
@@ -90,7 +84,6 @@ func Worldview(
 			if remote.SenderID != localID {
 				if !reflect.DeepEqual(elevators[remote.ElevStateID], remote.ElevState) && remote.ElevStateID == remote.SenderID {
 					elevators[remote.ElevStateID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
-					//fmt.Println("ID, Avalaible: ", remote.ElevStateID, remote.ElevState.Available)
 					ch_elevMapUpdate <- utilities.DeepCopyElevatorMap(elevators)
 				}
 			}

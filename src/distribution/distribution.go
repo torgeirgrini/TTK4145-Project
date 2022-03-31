@@ -17,7 +17,7 @@ func Distribution(
 	ch_assignedOrder <-chan types.AssignedOrder,
 	ch_newLocalOrder chan<- elevio.ButtonEvent,
 	ch_localOrderCompleted <-chan elevio.ButtonEvent,
-	ch_reassignHallCalls <-chan string,
+	ch_stuck <-chan bool,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -56,7 +56,8 @@ func Distribution(
 	}
 
 	ch_peerStatusUpdate <- utilities.DeepCopyPeerStatus(peerAvailability)
-
+	localElevStuck := false
+	unavailableList := make(map[string]int, 0) //int not important
 	for {
 		select {
 		case newAssignedOrder := <-ch_assignedOrder:
@@ -81,9 +82,10 @@ func Distribution(
 				clearHallcall(localCompletedOrder.Floor, int(localCompletedOrder.Button), Hallcalls)
 			}
 		case <-ch_tick:
+			fmt.Println("Unavailable: ", unavailableList)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
-					if hc.OrderState == types.OS_Unconfirmed && utilities.EqualStringSlice(peerAvailability.Peers, hc.AckList) {
+					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
 						Hallcalls[floor][btn].OrderState = types.OS_Confirmed
 					}
 				}
@@ -105,7 +107,11 @@ func Distribution(
 					elevio.SetButtonLamp(elevio.ButtonType(btn), floor, allOrders[floor][btn])
 				}
 			}
-			
+			for _, id := range peerAvailability.Peers {
+				if _, ok := unavailableList[id]; ok {
+					reassignHallcalls(id, Hallcalls, localID)
+				}
+			}
 			// if alone on network, change completed to unknown
 			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) {
 				for floor := 0; floor < config.NumFloors; floor++ {
@@ -118,6 +124,7 @@ func Distribution(
 			}
 		case remote := <-ch_rxHallCalls:
 			if remote.SenderID != localID {
+				fmt.Println(remote.SenderID, remote.HallCalls)
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
 						switch hc.OrderState {
@@ -169,10 +176,8 @@ func Distribution(
 					}
 				}
 			}
-		case reassignID := <- ch_reassignHallCalls:
-			reassignHallcalls(reassignID, Hallcalls, localID)
 		case peerAvailability = <-ch_peerUpdate:
-			peerAvailability.Peers = utilities.RemoveDuplicatesSlice(append(utilities.DeepCopyStringSlice(peerAvailability.Peers), localID))
+			//peerAvailability.Peers = utilities.RemoveDuplicatesSlice(append(utilities.DeepCopyStringSlice(peerAvailability.Peers), localID))
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", peerAvailability.Peers)
 			fmt.Printf("  New:      %q\n", peerAvailability.New)
@@ -180,9 +185,20 @@ func Distribution(
 			if len(peerAvailability.Lost) != 0 {
 				for _, id := range peerAvailability.Lost {
 					reassignHallcalls(id, Hallcalls, localID)
+					unavailableList[id] = 0
+				}
+			} else if peerAvailability.New != "" {
+				if _, ok := unavailableList[peerAvailability.New]; ok {
+					delete(unavailableList, peerAvailability.New)
 				}
 			}
 			ch_peerStatusUpdate <- utilities.DeepCopyPeerStatus(peerAvailability)
+		case localElevStuck = <-ch_stuck:
+			if localElevStuck {
+				fmt.Println("hillo")
+				unavailableList[localID] = 0
+			}
+			ch_peerTxEnable <- !localElevStuck
 		}
 	}
 }

@@ -10,3 +10,5 @@ const PortBroadcast = 17823
 const TransmitInterval_ms = 100
 const TimeBeforeUnavailable = 5
 const MotorTimeOut_s = 3 * (NumFloors - 1)
+
+const Prt1 = 13213

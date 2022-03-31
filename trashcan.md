@@ -30,7 +30,6 @@ type ElevatorMessage struct {
 	Floor     int
 	Dirn      elevio.MotorDirection
 	Behaviour types.ElevatorBehaviour
-	Available bool
 	CabCalls  []bool
 }
 
@@ -60,7 +59,6 @@ func createMsgStruct(id string, hallCalls [config.NumFloors][config.NumButtons -
 		Floor:     localElev.Floor,
 		Dirn:      localElev.Dirn,
 		Behaviour: localElev.Behaviour,
-		Available: true,
 		CabCalls:  localCabCalls}
 
 	return MessageStruct{
