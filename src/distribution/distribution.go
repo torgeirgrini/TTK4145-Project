@@ -57,7 +57,7 @@ func Distribution(
 	for i := range Hallcalls {
 		Hallcalls[i] = make([]types.HallCall, config.NumButtons-1)
 		for j := range Hallcalls[i] {
-			Hallcalls[i][j] = types.HallCall{ExecutorID: "", AssignerID: "", OrderState: types.OS_UNKNOWN, AckList: make([]string, 0)}
+			Hallcalls[i][j] = types.HallCall{ExecutorID: "", OrderState: types.OS_Unknown, AckList: make([]string, 0)}
 		}
 	}
 
@@ -98,13 +98,11 @@ func Distribution(
 				ch_newLocalOrder <- newAssignedOrder.OrderType
 			}
 			if newAssignedOrder.OrderType.Button != elevio.BT_Cab &&
-				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_COMPLETED ||
-					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_UNKNOWN) {
+				(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_Completed ||
+					Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState == types.OS_Unknown) {
 
-				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AssignerID = localID
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].ExecutorID = newAssignedOrder.ID
-				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_UNCONFIRMED
-				//write our ID on the ack list
+				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].OrderState = types.OS_Unconfirmed
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList =
 					append(Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList, localID)
 				Hallcalls[newAssignedOrder.OrderType.Floor][newAssignedOrder.OrderType.Button].AckList =
@@ -126,8 +124,8 @@ func Distribution(
 				}
 			}
 		case localCompletedOrder := <-ch_localOrderCompleted:
-			if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_CONFIRMED {
-				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_COMPLETED
+			if Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState == types.OS_Confirmed {
+				Hallcalls[localCompletedOrder.Floor][localCompletedOrder.Button].OrderState = types.OS_Completed
 				clearHallcall(localCompletedOrder.Floor, int(localCompletedOrder.Button), Hallcalls)
 			}
 		case <-ch_tick:
@@ -139,8 +137,8 @@ func Distribution(
 			fmt.Println("local available:", elevators[localID].Available)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range Hallcalls[floor] {
-					if hc.OrderState == types.OS_UNCONFIRMED && utilities.EqualStringSlice(peerAvailability.Peers, hc.AckList) {
-						Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
+					if hc.OrderState == types.OS_Unconfirmed && utilities.EqualStringSlice(peerAvailability.Peers, hc.AckList) {
+						Hallcalls[floor][btn].OrderState = types.OS_Confirmed
 					}
 				}
 			}
@@ -164,16 +162,16 @@ func Distribution(
 				}
 			}
 			for _, id := range peerAvailability.Peers {
-					if !elevators[id].Available {
-						reassignHallcalls(id, Hallcalls, localID)
-					}
+				if !elevators[id].Available {
+					reassignHallcalls(id, Hallcalls, localID)
 				}
+			}
 			// if alone on network, change completed to unknown
 			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) {
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
-						if hc.OrderState == types.OS_COMPLETED {
-							Hallcalls[floor][btn].OrderState = types.OS_UNKNOWN
+						if hc.OrderState == types.OS_Completed {
+							Hallcalls[floor][btn].OrderState = types.OS_Unknown
 						}
 					}
 				}
@@ -183,52 +181,49 @@ func Distribution(
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range Hallcalls[floor] {
 						switch hc.OrderState {
-						case types.OS_COMPLETED:
+						case types.OS_Completed:
 							switch remote.HallCalls[floor][btn].OrderState {
-							case types.OS_COMPLETED:
-							case types.OS_UNCONFIRMED:
+							case types.OS_Completed:
+							case types.OS_Unconfirmed:
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
-								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
-								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
+								Hallcalls[floor][btn].OrderState = types.OS_Unconfirmed
 								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
-							case types.OS_CONFIRMED:
-							case types.OS_UNKNOWN:
+							case types.OS_Confirmed:
+							case types.OS_Unknown:
 							}
-						case types.OS_UNCONFIRMED:
+						case types.OS_Unconfirmed:
 							switch remote.HallCalls[floor][btn].OrderState {
-							case types.OS_COMPLETED:
-							case types.OS_CONFIRMED:
-								Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
+							case types.OS_Completed:
+							case types.OS_Confirmed:
+								Hallcalls[floor][btn].OrderState = types.OS_Confirmed
 								fallthrough
-							case types.OS_UNCONFIRMED:
+							case types.OS_Unconfirmed:
 								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
-							case types.OS_UNKNOWN:
+							case types.OS_Unknown:
 							}
-						case types.OS_CONFIRMED:
+						case types.OS_Confirmed:
 							switch remote.HallCalls[floor][btn].OrderState {
-							case types.OS_COMPLETED:
-								Hallcalls[floor][btn].OrderState = types.OS_COMPLETED
+							case types.OS_Completed:
+								Hallcalls[floor][btn].OrderState = types.OS_Completed
 								clearHallcall(floor, btn, Hallcalls)
-							case types.OS_UNCONFIRMED:
-							case types.OS_CONFIRMED:
-							case types.OS_UNKNOWN:
+							case types.OS_Unconfirmed:
+							case types.OS_Confirmed:
+							case types.OS_Unknown:
 							}
-						case types.OS_UNKNOWN:
+						case types.OS_Unknown:
 							switch remote.HallCalls[floor][btn].OrderState {
-							case types.OS_COMPLETED:
-								Hallcalls[floor][btn].OrderState = types.OS_COMPLETED
+							case types.OS_Completed:
+								Hallcalls[floor][btn].OrderState = types.OS_Completed
 								clearHallcall(floor, btn, Hallcalls)
-							case types.OS_UNCONFIRMED:
+							case types.OS_Unconfirmed:
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
-								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
-								Hallcalls[floor][btn].OrderState = types.OS_UNCONFIRMED
+								Hallcalls[floor][btn].OrderState = types.OS_Unconfirmed
 								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
-							case types.OS_CONFIRMED:
+							case types.OS_Confirmed:
 								Hallcalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
-								Hallcalls[floor][btn].AssignerID = remote.HallCalls[floor][btn].AssignerID
-								Hallcalls[floor][btn].OrderState = types.OS_CONFIRMED
+								Hallcalls[floor][btn].OrderState = types.OS_Confirmed
 								appendToAckList(Hallcalls, remote.HallCalls, floor, btn, localID)
-							case types.OS_UNKNOWN:
+							case types.OS_Unknown:
 							}
 						}
 					}
@@ -242,7 +237,7 @@ func Distribution(
 						ElevatorMap: utilities.DeepCopyElevatorMap(elevators),
 					}
 				}
-				
+
 			}
 		case peerAvailability = <-ch_peerUpdate:
 			peerAvailability.Peers = utilities.RemoveDuplicatesSlice(append(utilities.DeepCopyStringSlice(peerAvailability.Peers), localID))
@@ -280,17 +275,17 @@ func reassignHallcalls(reassignID string, hallCalls [][]types.HallCall, assignTo
 		for j, hc := range hallCalls[i] {
 			if hc.ExecutorID == reassignID {
 				switch hc.OrderState {
-				case types.OS_COMPLETED:
-				case types.OS_UNCONFIRMED:
+				case types.OS_Completed:
+				case types.OS_Unconfirmed:
 					hallCalls[i][j].ExecutorID = assignToID
 					hallCalls[i][j].OrderState = hc.OrderState
 					hallCalls[i][j].AckList = make([]string, 0)
 					hallCalls[i][j].AckList = append(hallCalls[i][j].AckList, assignToID)
-				case types.OS_CONFIRMED:
+				case types.OS_Confirmed:
 					hallCalls[i][j].ExecutorID = assignToID
 					hallCalls[i][j].OrderState = hc.OrderState
 					hallCalls[i][j].AckList = make([]string, 0)
-				case types.OS_UNKNOWN:
+				case types.OS_Unknown:
 				}
 			}
 		}
@@ -302,7 +297,7 @@ func generateOurHallcalls(hc [][]types.HallCall, elevatorID string) [][]bool {
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
 		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_CONFIRMED)
+			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_Confirmed)
 		}
 	}
 	return orderMatrix
@@ -313,7 +308,7 @@ func generateAllHallcalls(hc [][]types.HallCall) [][]bool {
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
 		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_CONFIRMED
+			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_Confirmed
 		}
 	}
 	return orderMatrix
@@ -328,5 +323,4 @@ func appendToAckList(localHC [][]types.HallCall, remoteHC [][]types.HallCall, fl
 func clearHallcall(floor int, btn int, Hallcalls [][]types.HallCall) {
 	Hallcalls[floor][btn].AckList = make([]string, 0)
 	Hallcalls[floor][btn].ExecutorID = ""
-	Hallcalls[floor][btn].AssignerID = ""
 }

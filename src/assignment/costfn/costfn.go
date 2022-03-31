@@ -13,7 +13,7 @@ func TimeToIdle(e types.Elevator) int {
 
 	switch e.Behaviour {
 	case types.EB_Idle:
-		e.Dirn = requests.Requests_nextAction(e, elevio.ButtonEvent{Floor:-1, Button: elevio.BT_Cab}).Dirn
+		e.Dirn = requests.Requests_nextAction(e, elevio.BT_Cab).Dirn
 		if e.Dirn == elevio.MD_Stop {
 			return duration
 		}
@@ -27,7 +27,7 @@ func TimeToIdle(e types.Elevator) int {
 		if requests.Requests_shouldStop(e) {
 			requests.Requests_clearAtCurrentFloor(&e)
 			duration += int(time.Duration(config.DoorOpenDuration_s) * time.Second)
-			e.Dirn = requests.Requests_nextAction(e, elevio.ButtonEvent{Floor:-1, Button: elevio.BT_Cab}).Dirn
+			e.Dirn = requests.Requests_nextAction(e, elevio.BT_Cab).Dirn
 			if e.Dirn == elevio.MD_Stop {
 				return duration
 			}

@@ -29,10 +29,10 @@ type AssignedOrder struct {
 type OrderState int
 
 const (
-	OS_COMPLETED OrderState = iota
-	OS_UNCONFIRMED
-	OS_CONFIRMED
-	OS_UNKNOWN
+	OS_Completed OrderState = iota
+	OS_Unconfirmed
+	OS_Confirmed
+	OS_Unknown
 )
 
 type DoorState int
@@ -45,7 +45,6 @@ const (
 
 type HallCall struct {
 	ExecutorID string
-	AssignerID string
 	OrderState OrderState
 	AckList    []string
 }

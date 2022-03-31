@@ -11,9 +11,10 @@ func Door(ch_hwObstruction <-chan bool,
 	ch_openDoor <-chan bool,
 	ch_stuck chan<- bool,
 	ch_doorClosed chan<- bool,
-	) {
+) {
 	var doorState types.DoorState = types.DS_Closed
 	elevio.SetDoorOpenLamp(false)
+	obstruction := false
 
 	DoorTimer := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
 	DoorTimer.Stop()
@@ -25,31 +26,34 @@ func Door(ch_hwObstruction <-chan bool,
 
 	for {
 		select {
-		case obstruction := <-ch_hwObstruction:
+		case obstruction = <-ch_hwObstruction:
 			switch doorState {
 			case types.DS_Open:
-				if obstruction {
-					doorState = types.DS_Obstructed
-					ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
-					DoorTimer.Stop()
-				}
+				doorState = types.DS_Obstructed
+				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+				DoorTimer.Stop()
 			case types.DS_Closed:
 			case types.DS_Obstructed:
-				if !obstruction {
-					ch_stuck <- false
-					doorState = types.DS_Open
-					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
-					ObstructionTimer.Stop()
-				}
+				ch_stuck <- false
+				doorState = types.DS_Open
+				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+				ObstructionTimer.Stop()
 			}
 		case <-ch_openDoor:
 			switch doorState {
 			case types.DS_Open:
 				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			case types.DS_Closed:
-				doorState = types.DS_Open
+				if obstruction {
+					doorState = types.DS_Obstructed
+					ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+					DoorTimer.Stop()
+				} else {
+					doorState = types.DS_Open
+					DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
+					ObstructionTimer.Stop()
+				}
 				elevio.SetDoorOpenLamp(true)
-				DoorTimer.Reset(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			case types.DS_Obstructed:
 			}
 		case <-ch_obstructionTimer:
@@ -59,7 +63,6 @@ func Door(ch_hwObstruction <-chan bool,
 			doorState = types.DS_Closed
 			elevio.SetDoorOpenLamp(false)
 			ch_doorClosed <- true
-
 		}
 	}
 }

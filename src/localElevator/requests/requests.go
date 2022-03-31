@@ -37,7 +37,7 @@ func requests_here(e types.Elevator) bool {
 	return false
 }
 
-func Requests_nextAction(e types.Elevator, order elevio.ButtonEvent) types.Action {
+func Requests_nextAction(e types.Elevator, btn elevio.ButtonType) types.Action {
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if requests_above(e) {
@@ -61,9 +61,9 @@ func Requests_nextAction(e types.Elevator, order elevio.ButtonEvent) types.Actio
 		}
 	case elevio.MD_Stop:
 		if requests_here(e) {
-			if order.Button == elevio.BT_HallUp {
+			if btn == elevio.BT_HallUp {
 				return types.Action{elevio.MD_Up, types.EB_DoorOpen}
-			} else if order.Button == elevio.BT_HallDown {
+			} else if btn == elevio.BT_HallDown {
 				return types.Action{elevio.MD_Down, types.EB_DoorOpen}
 			}
 			return types.Action{elevio.MD_Stop, types.EB_DoorOpen}

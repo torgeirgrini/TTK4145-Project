@@ -11,7 +11,7 @@ func Motor(
 	ch_setMotorDirn <-chan elevio.MotorDirection,
 ) {
 
-	MotorWatchDog := time.NewTimer(time.Duration(config.DoorOpenDuration_s) * time.Second)
+	MotorWatchDog := time.NewTimer(time.Duration(config.MotorTimeOut_s) * time.Second)
 	MotorWatchDog.Stop()
 	ch_motorWatchDog := MotorWatchDog.C
 
@@ -19,13 +19,17 @@ func Motor(
 		select {
 		case <-ch_motorWatchDog:
 			ch_stuck <- true
-		case dirn := <-ch_setMotorDirn:
-			if dirn != elevio.MD_Stop {
+		case motorDir := <-ch_setMotorDirn:
+			switch motorDir {
+			case elevio.MD_Up:
 				MotorWatchDog.Reset(time.Duration(config.MotorTimeOut_s) * time.Second)
-			} else {
+			case elevio.MD_Down:
+				MotorWatchDog.Reset(time.Duration(config.MotorTimeOut_s) * time.Second)
+			case elevio.MD_Stop:
 				MotorWatchDog.Stop()
+				ch_stuck <- false
 			}
-			elevio.SetMotorDirection(dirn)
+			elevio.SetMotorDirection(motorDir)
 		}
 	}
 }

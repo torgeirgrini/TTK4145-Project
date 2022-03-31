@@ -6,7 +6,6 @@ import (
 	"Project/localElevator/requests"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 )
 
 func RunLocalElevator(
@@ -22,23 +21,19 @@ func RunLocalElevator(
 
 	e := types.InitElev()
 	SetCabLights(e)
-	//elevio.SetMotorDirection(elevio.MD_Stop)
-	ch_setMotorDirn <- elevio.MD_Stop
-	
-	//elevio.SetMotorDirection(elevio.MD_Down)
-	ch_setMotorDirn <- elevio.MD_Down
+
 	e.Dirn = elevio.MD_Down
 	e.Behaviour = types.EB_Moving
-	currentFloor := <-ch_hwFloor
-	//elevio.SetMotorDirection(elevio.MD_Stop)
-	ch_setMotorDirn <- elevio.MD_Stop
+	ch_setMotorDirn <- e.Dirn
+
+	e.Floor = <-ch_hwFloor
 	e.Dirn = elevio.MD_Stop
 	e.Behaviour = types.EB_Idle
-	e.Floor = currentFloor
-	elevio.SetFloorIndicator(currentFloor)
+	ch_setMotorDirn <- e.Dirn
+	elevio.SetFloorIndicator(e.Floor)
 
 	for {
-		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e) //gir det mer mening å ha denne nederst??
+		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 		select {
 		case newOrder := <-ch_newLocalOrder:
 			switch e.Behaviour {
@@ -47,7 +42,6 @@ func RunLocalElevator(
 					ch_openDoor <- true
 					if newOrder.Button != elevio.BT_Cab {
 						ch_localOrderCompleted <- elevio.ButtonEvent{Floor: newOrder.Floor, Button: newOrder.Button}
-						
 					}
 				} else {
 					e.Requests[newOrder.Floor][int(newOrder.Button)] = true
@@ -56,7 +50,7 @@ func RunLocalElevator(
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
 			case types.EB_Idle:
 				e.Requests[newOrder.Floor][int(newOrder.Button)] = true
-				action := requests.Requests_nextAction(e, newOrder) //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				action := requests.Requests_nextAction(e, newOrder.Button)
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
 				switch action.Behaviour {
@@ -66,23 +60,19 @@ func RunLocalElevator(
 					requests.Requests_clearAtCurrentFloor(&e)
 					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 				case types.EB_Moving:
-					//elevio.SetMotorDirection(e.Dirn)
 					ch_setMotorDirn <- e.Dirn
-	
+
 				case types.EB_Idle:
 					break
 				}
 			}
 			SetCabLights(e)
 		case newFloor := <-ch_hwFloor:
-			fmt.Println("hwfloor fsm")
-			fmt.Println("Floor:", newFloor)
 			e.Floor = newFloor
 			elevio.SetFloorIndicator(e.Floor)
 			switch e.Behaviour {
 			case types.EB_Moving:
 				if requests.Requests_shouldStop(e) {
-					//elevio.SetMotorDirection(elevio.MD_Stop)
 					ch_setMotorDirn <- elevio.MD_Stop
 					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
 					requests.Requests_clearAtCurrentFloor(&e)
@@ -94,45 +84,32 @@ func RunLocalElevator(
 			default:
 				break
 			}
-			
-				case <-ch_doorClosed:
-					switch e.Behaviour { //switch med bare en case?? Endre til if?
-					case types.EB_DoorOpen:
-						action := requests.Requests_nextAction(e, elevio.ButtonEvent{Floor: 0, Button: elevio.BT_Cab}) //litt for hard workaround?
-						e.Dirn = action.Dirn
-						e.Behaviour = action.Behaviour
-						switch e.Behaviour {
-						case types.EB_DoorOpen:
-							ch_openDoor <- true
-							requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
-							requests.Requests_clearAtCurrentFloor(&e)
-							sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
-							SetCabLights(e)
-						case types.EB_Moving:
-							fallthrough
-						case types.EB_Idle:
-							ch_setMotorDirn <- e.Dirn
-						}
-					}
-				case stuck := <-ch_stuck:
-					fmt.Println("Oh no, step bro im stuck!!", stuck)
-					e.Available = !stuck
+
+		case <-ch_doorClosed:
+			switch e.Behaviour {
+			case types.EB_DoorOpen:
+				action := requests.Requests_nextAction(e, elevio.BT_Cab) //litt for hard workaround?
+				e.Dirn = action.Dirn
+				e.Behaviour = action.Behaviour
+				switch e.Behaviour {
+				case types.EB_DoorOpen:
+					ch_openDoor <- true
+					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
+					requests.Requests_clearAtCurrentFloor(&e)
+					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
+					SetCabLights(e)
+				case types.EB_Moving:
+					fallthrough
+				case types.EB_Idle:
+					ch_setMotorDirn <- e.Dirn
+				}
+			case types.EB_Moving:
+			case types.EB_Idle:
+			}
+		case stuck := <-ch_stuck:
+			e.Available = !stuck
 		}
 	}
-}
-
-func Fsm_OnInitBetweenFloors(e *types.Elevator) {
-	elevio.SetMotorDirection(elevio.MD_Down)
-	e.Dirn = elevio.MD_Down
-	e.Behaviour = types.EB_Moving
-}
-
-func Fsm_OnInitArrivedAtFloor(e *types.Elevator, currentFloor int) {
-	elevio.SetMotorDirection(elevio.MD_Stop)
-	e.Dirn = elevio.MD_Stop
-	e.Behaviour = types.EB_Idle
-	e.Floor = currentFloor
-	elevio.SetFloorIndicator(currentFloor)
 }
 
 func sendLocalCompletedOrders(reqBeforeClear [][]bool, reqAfterClear [][]bool, ch_localOrderCompleted chan<- elevio.ButtonEvent) {
