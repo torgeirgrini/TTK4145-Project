@@ -3,7 +3,6 @@ package types
 import (
 	"Project/config"
 	"Project/localElevator/elevio"
-	"Project/network/peers"
 )
 
 type ElevatorBehaviour int
@@ -44,22 +43,27 @@ const (
 )
 
 type HallCall struct {
-	ExecutorID string
-	OrderState OrderState
-	AckList    []string
+	ExecutorID 	string
+	OrderState 	OrderState
+	AckList    	[]string
 }
 
-type NetworkMessage struct {
+type ElevStateNetMsg struct {
 	SenderID    string
 	ElevStateID string
-	HallCalls   [][]HallCall
 	ElevState   Elevator
 }
 
-type AssignerMessage struct {
-	PeerStatus  peers.PeerUpdate
-	ElevatorMap map[string]Elevator
+type HallCallsNetMsg struct{
+	SenderID 	string
+	HallCalls 	[][]HallCall
 }
+
+// type AssignerMessage struct {
+// 	PeerStatus  peers.PeerUpdate
+// 	ElevatorMap map[string]Elevator
+// }
+
 
 type Action struct {
 	Dirn      elevio.MotorDirection

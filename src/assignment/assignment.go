@@ -6,33 +6,29 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 )
 
 func Assignment(
 	localID string,
-	ch_informationToAssigner <-chan types.AssignerMessage,
+	ch_peerStatusUpdate <-chan peers.PeerUpdate,
+	ch_elevMapUpdate <-chan map[string]types.Elevator,
 	ch_hwButtonPress <-chan elevio.ButtonEvent,
 	ch_assignedOrder chan<- types.AssignedOrder,
 ) {
 
 	var elevatorMap map[string]types.Elevator
 	var peerUpdate peers.PeerUpdate
-	var assignerMsg types.AssignerMessage
 
-	assignerMsg = <-ch_informationToAssigner
-	elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
-	peerUpdate = utilities.DeepCopyPeerStatus(assignerMsg.PeerStatus)
+	elevatorMap = <-ch_elevMapUpdate
+	peerUpdate = <-ch_peerStatusUpdate
 
 	var AssignedElevID string
 	for {
 		select {
-		case assignerMsg = <-ch_informationToAssigner:
-			elevatorMap = utilities.DeepCopyElevatorMap(assignerMsg.ElevatorMap)
-			peerUpdate = utilities.DeepCopyPeerStatus(assignerMsg.PeerStatus)
+		case elevatorMap = <-ch_elevMapUpdate:
+		case peerUpdate = <-ch_peerStatusUpdate:
 		case btn_event := <-ch_hwButtonPress:
 			AssignedElevID = localID
-
 			if btn_event.Button != elevio.BT_Cab {
 				for _, id := range peerUpdate.Peers {
 					if _, ok := elevatorMap[id]; ok && elevatorMap[id].Available {
@@ -54,7 +50,6 @@ func Assignment(
 					}
 				}
 			}
-			fmt.Println(AssignedElevID)
 			ch_assignedOrder <- types.AssignedOrder{OrderType: btn_event, ID: AssignedElevID}
 		}
 	}

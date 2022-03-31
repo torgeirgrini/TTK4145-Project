@@ -9,4 +9,4 @@ const PortPeers = 17822
 const PortBroadcast = 17823
 const TransmitInterval_ms = 100
 const TimeBeforeUnavailable = 5
-const MotorTimeOut_s = 3 * NumFloors
+const MotorTimeOut_s = 3 * (NumFloors - 1)

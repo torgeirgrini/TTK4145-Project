@@ -8,7 +8,9 @@ import (
 	"Project/localElevator/elevio"
 	"Project/localElevator/fsm"
 	"Project/localElevator/motor"
+	"Project/network/peers"
 	"Project/types"
+	"Project/worldview"
 	"flag"
 )
 
@@ -27,10 +29,17 @@ func main() {
 	ch_hwObstruction := make(chan bool)
 
 	//Assigner<-/->Distributor channels
-	ch_informationToAssigner := make(chan types.AssignerMessage, 1)
+	//ch_informationToAssigner := make(chan types.AssignerMessage, 1)
 	ch_assignedOrder := make(chan types.AssignedOrder, 1)
 
-	//Network channels
+	//wordview to assigner
+	ch_elevMapUpdate := make(chan map[string]types.Elevator)
+
+	//dist to assigner
+	ch_peerStatusUpdate := make(chan peers.PeerUpdate)
+
+	//litta satan fra ww til dist
+	ch_reassignHallCalls := make(chan string)
 
 	//LocalElevator<-/->Distributor channels
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
@@ -55,9 +64,9 @@ func main() {
 	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_stuck, ch_setMotorDirn)
 	go motor.Motor(ch_stuck, ch_setMotorDirn)
 	go door.Door(ch_hwObstruction, ch_openDoor, ch_stuck, ch_doorClosed)
-	go assigner.Assignment(id, ch_informationToAssigner, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_localElevatorState, ch_informationToAssigner, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted)
-
+	go assigner.Assignment(id, ch_peerStatusUpdate, ch_elevMapUpdate, ch_hwButtonPress, ch_assignedOrder)
+	go distribution.Distribution(id, ch_peerStatusUpdate, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_reassignHallCalls)
+	go worldview.Worldview(id, ch_localElevatorState, ch_elevMapUpdate, ch_newLocalOrder, ch_reassignHallCalls)
 	ch_wait := make(chan bool)
 	<-ch_wait
 }
