@@ -20,7 +20,7 @@ func Door(ch_hwObstruction <-chan bool,
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
 
-	ObstructionTimer := time.NewTimer(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+	ObstructionTimer := time.NewTimer(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
 	ObstructionTimer.Stop()
 	ch_obstructionTimer := ObstructionTimer.C
 
@@ -30,7 +30,7 @@ func Door(ch_hwObstruction <-chan bool,
 			switch doorState {
 			case types.DS_Open:
 				doorState = types.DS_Obstructed
-				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
 				DoorTimer.Stop()
 			case types.DS_Closed:
 			case types.DS_Obstructed:
@@ -46,7 +46,7 @@ func Door(ch_hwObstruction <-chan bool,
 			case types.DS_Closed:
 				if obstruction {
 					doorState = types.DS_Obstructed
-					ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable) * time.Second)
+					ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
 					DoorTimer.Stop()
 				} else {
 					doorState = types.DS_Open

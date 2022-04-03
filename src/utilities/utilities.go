@@ -4,19 +4,7 @@ import (
 	"Project/config"
 	"Project/network/peers"
 	"Project/types"
-	"fmt"
 )
-
-func PrintElevator(elev types.Elevator) {
-	fmt.Println("Elevator: ")
-	fmt.Println("	Current Floor: ", elev.Floor)
-	fmt.Println("	Current Direction: ", elev.Dirn)
-	fmt.Println("	Current Request Matrix: ")
-	for floor := config.NumFloors - 1; floor > -1; floor-- {
-		fmt.Println("		Orders at floor", floor, ": ", elev.Requests[floor])
-	}
-	fmt.Println("	Current Behaviour: ", elev.Behaviour)
-}
 
 func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 	e2 := types.InitElev()
@@ -114,9 +102,9 @@ func RemoveDuplicatesSlice(s []string) []string {
 	return result
 }
 
-func ContainsStringSlice(y, x []string) bool {
-	for _, element := range x {
-		containselement := ContainsString(y, element)
+func ContainsStringSlice(slice, subslice []string) bool {
+	for _, element := range subslice {
+		containselement := ContainsString(slice, element)
 		if !containselement {
 			return false
 		}
@@ -124,9 +112,9 @@ func ContainsStringSlice(y, x []string) bool {
 	return true
 }
 
-func ContainsString(sl []string, name string) bool {
+func ContainsString(sl []string, str string) bool {
 	for _, value := range sl {
-	   if value == name {
+	   if value == str {
 		  return true
 	   }
 	}

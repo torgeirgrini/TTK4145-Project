@@ -93,3 +93,5 @@ func InitElev() Elevator {
 		Behaviour:           EB_Idle,
 		ClearRequestVariant: CV_InDirn}
 }
+
+type Void struct{}

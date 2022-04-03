@@ -7,7 +7,6 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -15,12 +14,12 @@ import (
 func Worldview(
 	localID string,
 	ch_localElevatorState <-chan types.Elevator,
-	ch_elevMapUpdate chan<- map[string]types.Elevator,
+	ch_elevMap chan<- map[string]types.Elevator,
 	ch_newLocalOrder chan<- elevio.ButtonEvent,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
-	ch_txElevator := make(chan types.ElevStateNetMsg, config.NumElevators) //spør om bufferstr/nødvendig
+	ch_txElevator := make(chan types.ElevStateNetMsg, config.NumElevators) 
 	ch_rxElevator := make(chan types.ElevStateNetMsg, config.NumElevators)
 	ch_peerUpdate := make(chan peers.PeerUpdate, config.NumElevators)
 	ch_peerTxEnable := make(chan bool)
@@ -30,11 +29,10 @@ func Worldview(
 
 	go bcast.Transmitter(config.PortBroadcast, ch_txElevator)
 	go bcast.Receiver(config.PortBroadcast, ch_rxElevator)
-	go peers.Transmitter(config.Prt1, localID, ch_peerTxEnable)
-	go peers.Receiver(config.Prt1, ch_peerUpdate)
+	go peers.Transmitter(config.PortPeersWW, localID, ch_peerTxEnable)
+	go peers.Receiver(config.PortPeersWW, ch_peerUpdate)
 
-	var peerAvailability peers.PeerUpdate
-	peerAvailability = peers.PeerUpdate{
+	peerAvailability := peers.PeerUpdate{
 		Peers: []string{localID},
 		New:   "",
 		Lost:  make([]string, 0),
@@ -66,13 +64,13 @@ func Worldview(
 		default:
 		}
 	}
-	ch_elevMapUpdate <- utilities.DeepCopyElevatorMap(elevators)
+	ch_elevMap <- utilities.DeepCopyElevatorMap(elevators)
 	for {
 		select {
 		case e := <-ch_localElevatorState:
 			if !reflect.DeepEqual(elevators[localID], e) {
 				elevators[localID] = utilities.DeepCopyElevatorStruct(e)
-				ch_elevMapUpdate <- utilities.DeepCopyElevatorMap(elevators)
+				ch_elevMap <- utilities.DeepCopyElevatorMap(elevators)
 			}
 		case <-ch_tick:
 			ch_txElevator <- types.ElevStateNetMsg{
@@ -84,15 +82,10 @@ func Worldview(
 			if remote.SenderID != localID {
 				if !reflect.DeepEqual(elevators[remote.ElevStateID], remote.ElevState) && remote.ElevStateID == remote.SenderID {
 					elevators[remote.ElevStateID] = utilities.DeepCopyElevatorStruct(remote.ElevState)
-					ch_elevMapUpdate <- utilities.DeepCopyElevatorMap(elevators)
+					ch_elevMap <- utilities.DeepCopyElevatorMap(elevators)
 				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
-			peerAvailability.Peers = utilities.RemoveDuplicatesSlice(append(utilities.DeepCopyStringSlice(peerAvailability.Peers), localID))
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", peerAvailability.Peers)
-			fmt.Printf("  New:      %q\n", peerAvailability.New)
-			fmt.Printf("  Lost:     %q\n", peerAvailability.Lost)
 			if peerAvailability.New != localID && peerAvailability.New != "" {
 				if _, ok := elevators[peerAvailability.New]; ok {
 					ch_txElevator <- types.ElevStateNetMsg{

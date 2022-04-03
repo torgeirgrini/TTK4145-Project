@@ -33,10 +33,10 @@ func main() {
 	ch_assignedOrder := make(chan types.AssignedOrder, 1)
 
 	//wordview to assigner
-	ch_elevMapUpdate := make(chan map[string]types.Elevator)
+	ch_elevMap := make(chan map[string]types.Elevator)
 
 	//dist to assigner
-	ch_peerStatusUpdate := make(chan peers.PeerUpdate)
+	ch_peerStatus := make(chan peers.PeerUpdate)
 
 	//LocalElevator<-/->Distributor channels
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
@@ -61,9 +61,9 @@ func main() {
 	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn)
 	go motor.Motor(ch_stuck, ch_setMotorDirn)
 	go door.Door(ch_hwObstruction, ch_openDoor, ch_stuck, ch_doorClosed)
-	go assigner.Assignment(id, ch_peerStatusUpdate, ch_elevMapUpdate, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_peerStatusUpdate, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck)
-	go worldview.Worldview(id, ch_localElevatorState, ch_elevMapUpdate, ch_newLocalOrder)
+	go assigner.Assignment(id, ch_peerStatus, ch_elevMap, ch_hwButtonPress, ch_assignedOrder)
+	go distribution.Distribution(id, ch_peerStatus, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck)
+	go worldview.Worldview(id, ch_localElevatorState, ch_elevMap, ch_newLocalOrder)
 	ch_wait := make(chan bool)
 	<-ch_wait
 }
