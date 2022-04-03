@@ -7,8 +7,8 @@ import (
 )
 
 func Motor(
-	ch_stuck chan<- bool,
-	ch_setMotorDirn <-chan elevio.MotorDirection,
+	ch_stuck 		  chan<- bool,
+	ch_setMotorDirn <-chan   elevio.MotorDirection,
 ) {
 
 	MotorWatchDog := time.NewTimer(time.Duration(config.MotorTimeOut_s) * time.Second)

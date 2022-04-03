@@ -12,12 +12,12 @@ import (
 )
 
 func Distribution(
-	localID string,
-	ch_peerStatus chan<- peers.PeerUpdate,
-	ch_assignedOrder <-chan types.AssignedOrder,
-	ch_newLocalOrder chan<- elevio.ButtonEvent,
-	ch_localOrderCompleted <-chan elevio.ButtonEvent,
-	ch_stuck <-chan bool,
+	localID 						string,
+	ch_peerStatus 			 chan<- peers.PeerUpdate,
+	ch_assignedOrder 	   <-chan   types.AssignedOrder,
+	ch_newLocalOrder 		 chan<- elevio.ButtonEvent,
+	ch_localOrderCompleted <-chan   elevio.ButtonEvent,
+	ch_stuck 			   <-chan   bool,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -70,18 +70,18 @@ func Distribution(
 
 				hallCalls[order.OrderType.Floor][order.OrderType.Button].ExecutorID = order.ID
 				hallCalls[order.OrderType.Floor][order.OrderType.Button].OrderState = types.OS_Unconfirmed
-				hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList =
-					append(hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList, localID)
-				hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList =
-					utilities.RemoveDuplicatesSlice(hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList)
+				hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList = 
+					updateAckList(hallCalls[order.OrderType.Floor][order.OrderType.Button].AckList, []string{}, localID)
 			}
 
 		case compOrder := <-ch_localOrderCompleted:
 			if hallCalls[compOrder.Floor][compOrder.Button].OrderState == types.OS_Confirmed {
-				hallCalls[compOrder.Floor][compOrder.Button].OrderState = types.OS_Completed
-				clearHallCall(compOrder.Floor, int(compOrder.Button), hallCalls)
+				hallCalls[compOrder.Floor][compOrder.Button] = completedHallCall()
+				prevLocalOrders[compOrder.Floor][compOrder.Button] = false
 			}
+		
 		case <-ch_tick:
+			fmt.Println(hallCalls, "unavail: ", unavailableSet)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
@@ -89,25 +89,34 @@ func Distribution(
 					}
 				}
 			}
-
+			ch_txHallCalls <- types.HallCallsNetMsg{
+				SenderID:  localID,
+				HallCalls: utilities.DeepCopyHallCalls(hallCalls),
+			}
+			
 			ourOrders := generateOurHallCalls(hallCalls, localID)
 			allOrders := generateAllHallCalls(hallCalls)
+			fmt.Println("prev: ", prevLocalOrders)
+			fmt.Println("our: ", ourOrders)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
+					
+					//fmt.Println("kukk", prevLocalOrders[floor][btn] != ourOrders[floor][btn])
 					if prevLocalOrders[floor][btn] != ourOrders[floor][btn] && hc.ExecutorID == localID {
+						fmt.Println("sent new local order")
 						ch_newLocalOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
+						prevLocalOrders[floor][btn] = ourOrders[floor][btn]
+
+					} else if prevLocalOrders[floor][btn] && !ourOrders[floor][btn] {
+						prevLocalOrders[floor][btn] = ourOrders[floor][btn]
 					}
-					prevLocalOrders[floor][btn] = ourOrders[floor][btn]
 					elevio.SetButtonLamp(elevio.ButtonType(btn), floor, allOrders[floor][btn])
 				}
 			}
-
-			for _, id := range peerAvailability.Peers {
-				if _, ok := unavailableSet[id]; ok {
-					hallCalls = reassignHallcalls(hallCalls, id,localID)
-				}
+			for id := range unavailableSet {
+				hallCalls = reassignHallcalls(hallCalls,id,localID)
 			}
-			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) {
+			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) || len(peerAvailability.Peers) == 0 {
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn, hc := range hallCalls[floor] {
 						if hc.OrderState == types.OS_Completed {
@@ -116,10 +125,7 @@ func Distribution(
 					}
 				}
 			}			
-			ch_txHallCalls <- types.HallCallsNetMsg{
-				SenderID:  localID,
-				HallCalls: utilities.DeepCopyHallCalls(hallCalls),
-			}
+			
 		case remote := <-ch_rxHallCalls:
 			if remote.SenderID != localID {
 				for floor := 0; floor < config.NumFloors; floor++ {
@@ -131,75 +137,65 @@ func Distribution(
 							case types.OS_Unconfirmed:
 								hallCalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								hallCalls[floor][btn].OrderState = types.OS_Unconfirmed
-								appendToAckList(hallCalls, remote.HallCalls, floor, btn, localID)
+								hallCalls[floor][btn].AckList = 
+									updateAckList(hallCalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList, localID)
 							case types.OS_Confirmed:
 							case types.OS_Unknown:
 							}
 						case types.OS_Unconfirmed:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_Completed:
-							case types.OS_Confirmed:
+							case types.OS_Confirmed:							
 								hallCalls[floor][btn].OrderState = types.OS_Confirmed
 								fallthrough
 							case types.OS_Unconfirmed:
-								appendToAckList(hallCalls, remote.HallCalls, floor, btn, localID)
+								hallCalls[floor][btn].AckList = 
+									updateAckList(hallCalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList, localID)
 							case types.OS_Unknown:
 							}
 						case types.OS_Confirmed:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_Completed:
-								hallCalls[floor][btn].OrderState = types.OS_Completed
-								clearHallCall(floor, btn, hallCalls)
+								hallCalls[floor][btn] = completedHallCall()
 							case types.OS_Unconfirmed:
 							case types.OS_Confirmed:
+								if hallCalls[floor][btn].ExecutorID != remote.HallCalls[floor][btn].ExecutorID {
+									hallCalls[floor][btn].ExecutorID = localID
+								}
 							case types.OS_Unknown:
 							}
 						case types.OS_Unknown:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_Completed:
-								hallCalls[floor][btn].OrderState = types.OS_Completed
-								clearHallCall(floor, btn, hallCalls)
+								hallCalls[floor][btn] = completedHallCall()
 							case types.OS_Unconfirmed:
 								hallCalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								hallCalls[floor][btn].OrderState = types.OS_Unconfirmed
-								appendToAckList(hallCalls, remote.HallCalls, floor, btn, localID)
+								hallCalls[floor][btn].AckList = 
+									updateAckList(hallCalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList, localID)
 							case types.OS_Confirmed:
 								hallCalls[floor][btn].ExecutorID = remote.HallCalls[floor][btn].ExecutorID
 								hallCalls[floor][btn].OrderState = types.OS_Confirmed
-								appendToAckList(hallCalls, remote.HallCalls, floor, btn, localID)
+								hallCalls[floor][btn].AckList = 
+									updateAckList(hallCalls[floor][btn].AckList, remote.HallCalls[floor][btn].AckList, localID)
 							case types.OS_Unknown:
 							}
 						}
 					}
 				}
 			}
+
 		case peerAvailability = <-ch_peerUpdate:
-			fmt.Println(peerAvailability)
-			/*if len(peerAvailability.Lost) != 0 {
-				for _, id := range peerAvailability.Lost {
-					hallCalls = reassignHallcalls(hallCalls, id,localID)
-					unavailableSet[id] = types.Void{}
-				}
-			} else if peerAvailability.New != "" {
-				delete(unavailableSet, peerAvailability.New)
-			}
-			ch_peerStatus <- utilities.DeepCopyPeerStatus(peerAvailability)
-		case localElevStuck := <-ch_stuck:
-			ch_peerTxEnable <- !localElevStuck*/
 			if len(peerAvailability.Lost) != 0 {
 				for _, id := range peerAvailability.Lost {
-					hallCalls = reassignHallcalls( hallCalls, id, localID)
 					unavailableSet[id] = types.Void{}
 				}
 			} else if peerAvailability.New != "" {
 					delete(unavailableSet, peerAvailability.New)
 			}
 			ch_peerStatus <- utilities.DeepCopyPeerStatus(peerAvailability)
+			
 		case localElevStuck := <-ch_stuck:
-			if localElevStuck {
-				fmt.Println("hillo")
-				unavailableSet[localID] = types.Void{}
-			}
 			ch_peerTxEnable <- !localElevStuck
 		}
 	}
@@ -234,7 +230,7 @@ func generateOurHallCalls(hc [][]types.HallCall, elevatorID string) [][]bool {
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
 		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && hc[i][j].OrderState == types.OS_Confirmed)
+			orderMatrix[i][j] = ((hc[i][j].ExecutorID == elevatorID) && (hc[i][j].OrderState == types.OS_Confirmed))
 		}
 	}
 	return orderMatrix
@@ -245,19 +241,22 @@ func generateAllHallCalls(hc [][]types.HallCall) [][]bool {
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
 		for j := range orderMatrix[i] {
-			orderMatrix[i][j] = hc[i][j].OrderState == types.OS_Confirmed
+			orderMatrix[i][j] = (hc[i][j].OrderState == types.OS_Confirmed)
 		}
 	}
 	return orderMatrix
 }
 
-func appendToAckList(localHC [][]types.HallCall, remoteHC [][]types.HallCall, floor int, btn int, ID string) {
-	localHC[floor][btn].AckList = append(localHC[floor][btn].AckList, remoteHC[floor][btn].AckList...)
-	localHC[floor][btn].AckList = append(localHC[floor][btn].AckList, ID)
-	localHC[floor][btn].AckList = utilities.RemoveDuplicatesSlice(localHC[floor][btn].AckList)
+func updateAckList(acklist1 []string, acklist2 []string, ID string) []string {
+	acklist3 := append(acklist1, acklist2...)
+	acklist3 = append(acklist3, ID)
+	return utilities.RemoveDuplicatesSlice(acklist3)
 }
 
-func clearHallCall(floor int, btn int, hallCalls [][]types.HallCall) {
-	hallCalls[floor][btn].AckList = make([]string, 0)
-	hallCalls[floor][btn].ExecutorID = ""
+func completedHallCall() types.HallCall {
+	return types.HallCall{
+		ExecutorID: "",
+		OrderState: types.OS_Completed,
+		AckList: make([]string, 0),
+	}
 }

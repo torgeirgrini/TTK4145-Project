@@ -4,13 +4,13 @@ import (
 	assigner "Project/assignment"
 	"Project/config"
 	"Project/distribution"
+	"Project/elevatorStates"
 	"Project/localElevator/door"
+	"Project/localElevator/elevator"
 	"Project/localElevator/elevio"
-	"Project/localElevator/fsm"
 	"Project/localElevator/motor"
 	"Project/network/peers"
 	"Project/types"
-	"Project/worldview"
 	"flag"
 )
 
@@ -28,42 +28,41 @@ func main() {
 	ch_hwFloor := make(chan int)
 	ch_hwObstruction := make(chan bool)
 
-	//Assigner<-/->Distributor channels
-	//ch_informationToAssigner := make(chan types.AssignerMessage, 1)
+	//Channel from elevatorStates to assigner
+	ch_elevMap := make(chan map[string]types.Elevator, 1)
+
+	//Channels between distributor and assigner
+	ch_peerStatus := make(chan peers.PeerUpdate)
 	ch_assignedOrder := make(chan types.AssignedOrder, 1)
 
-	//wordview to assigner
-	ch_elevMap := make(chan map[string]types.Elevator)
-
-	//dist to assigner
-	ch_peerStatus := make(chan peers.PeerUpdate)
-
-	//LocalElevator<-/->Distributor channels
+	//Channels between localElevator and distributor
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
-	ch_localOrderCompleted := make(chan elevio.ButtonEvent, 2)
-	ch_localElevatorState := make(chan types.Elevator, 1)
-	//ch_loneElevator := make(chan bool)
+	ch_localOrderCompleted := make(chan elevio.ButtonEvent, config.NumButtons)
 
-	//Door channels
+	//Channel from localElevator to elevatorStates
+	ch_localElevatorState := make(chan types.Elevator, 1)
+
+	//Channels between door and localElevator
 	ch_openDoor := make(chan bool, 1)
 	ch_doorClosed := make(chan bool, 1)
 
-	//Motor channels
+	//Channel from localElevator to motor
 	ch_setMotorDirn := make(chan elevio.MotorDirection, 1)
 
-	//Channel for stuckness
+	//Channel from motor and door to distributor
 	ch_stuck := make(chan bool, 1)
 
 	go elevio.PollButtons(ch_hwButtonPress)
 	go elevio.PollFloorSensor(ch_hwFloor)
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 
-	go fsm.RunLocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn)
+	go elevator.LocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn)
 	go motor.Motor(ch_stuck, ch_setMotorDirn)
 	go door.Door(ch_hwObstruction, ch_openDoor, ch_stuck, ch_doorClosed)
 	go assigner.Assignment(id, ch_peerStatus, ch_elevMap, ch_hwButtonPress, ch_assignedOrder)
 	go distribution.Distribution(id, ch_peerStatus, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck)
-	go worldview.Worldview(id, ch_localElevatorState, ch_elevMap, ch_newLocalOrder)
+	go elevatorStates.ElevatorStates(id, ch_localElevatorState, ch_elevMap, ch_newLocalOrder)
+	
 	ch_wait := make(chan bool)
 	<-ch_wait
 }

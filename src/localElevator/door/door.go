@@ -7,10 +7,11 @@ import (
 	"time"
 )
 
-func Door(ch_hwObstruction <-chan bool,
-	ch_openDoor <-chan bool,
-	ch_stuck chan<- bool,
-	ch_doorClosed chan<- bool,
+func Door(
+	ch_hwObstruction <-chan   bool,
+	ch_openDoor		 <-chan   bool,
+	ch_stuck 		   chan<- bool,
+	ch_doorClosed 	   chan<- bool,
 ) {
 	var doorState types.DoorState = types.DS_Closed
 	elevio.SetDoorOpenLamp(false)

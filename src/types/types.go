@@ -59,12 +59,6 @@ type HallCallsNetMsg struct{
 	HallCalls 	[][]HallCall
 }
 
-// type AssignerMessage struct {
-// 	PeerStatus  peers.PeerUpdate
-// 	ElevatorMap map[string]Elevator
-// }
-
-
 type Action struct {
 	Dirn      elevio.MotorDirection
 	Behaviour ElevatorBehaviour

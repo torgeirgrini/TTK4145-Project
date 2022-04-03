@@ -25,7 +25,7 @@ func TimeToIdle(e types.Elevator) int {
 	}
 	for {
 		if requests.Requests_shouldStop(e) {
-			requests.Requests_clearAtCurrentFloor(&e)
+			e = requests.Requests_clearAtCurrentFloor(e)
 			duration += int(time.Duration(config.DoorOpenDuration_s) * time.Second)
 			e.Dirn = requests.Requests_nextAction(e, elevio.BT_Cab).Dirn
 			if e.Dirn == elevio.MD_Stop {

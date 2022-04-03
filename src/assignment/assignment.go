@@ -9,11 +9,11 @@ import (
 )
 
 func Assignment(
-	localID string,
-	ch_peerStatus <-chan peers.PeerUpdate,
-	ch_elevMap <-chan map[string]types.Elevator,
-	ch_hwButtonPress <-chan elevio.ButtonEvent,
-	ch_assignedOrder chan<- types.AssignedOrder,
+	localID 				   string,
+	ch_peerStatus     <-chan   peers.PeerUpdate,
+	ch_elevMap 		  <-chan   map[string]types.Elevator,
+	ch_hwButtonPress  <-chan   elevio.ButtonEvent,
+	ch_assignedOrder 	chan<- types.AssignedOrder,
 ) {
 
 	var elevatorMap map[string]types.Elevator

@@ -1,4 +1,4 @@
-package worldview
+package elevatorStates
 
 import (
 	"Project/config"
@@ -7,15 +7,16 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
+	"fmt"
 	"reflect"
 	"time"
 )
 
-func Worldview(
-	localID string,
-	ch_localElevatorState <-chan types.Elevator,
-	ch_elevMap chan<- map[string]types.Elevator,
-	ch_newLocalOrder chan<- elevio.ButtonEvent,
+func ElevatorStates(
+	localID 					   string,
+	ch_localElevatorState <-chan   types.Elevator,
+	ch_elevMap 				chan<- map[string]types.Elevator,
+	ch_newLocalOrder 		chan<- elevio.ButtonEvent,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -86,6 +87,7 @@ func Worldview(
 				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
+			fmt.Println("Peer | WW: ", peerAvailability)
 			if peerAvailability.New != localID && peerAvailability.New != "" {
 				if _, ok := elevators[peerAvailability.New]; ok {
 					ch_txElevator <- types.ElevStateNetMsg{

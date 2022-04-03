@@ -1,4 +1,4 @@
-package fsm
+package elevator
 
 import (
 	"Project/config"
@@ -6,16 +6,17 @@ import (
 	"Project/localElevator/requests"
 	"Project/types"
 	"Project/utilities"
+	"fmt"
 )
 
-func RunLocalElevator(
-	ch_newLocalOrder <-chan elevio.ButtonEvent,
-	ch_hwFloor <-chan int,
-	ch_localElevatorState chan<- types.Elevator,
-	ch_localOrderCompleted chan<- elevio.ButtonEvent,
-	ch_openDoor chan<- bool,
-	ch_doorClosed <-chan bool,
-	ch_setMotorDirn chan<- elevio.MotorDirection,
+func LocalElevator(
+	ch_newLocalOrder 	  <-chan   elevio.ButtonEvent,
+	ch_hwFloor 			  <-chan   int,
+	ch_localElevatorState 	chan<- types.Elevator,
+	ch_localOrderCompleted 	chan<- elevio.ButtonEvent,
+	ch_openDoor 			chan<- bool,
+	ch_doorClosed 		  <-chan   bool,
+	ch_setMotorDirn			chan<- elevio.MotorDirection,
 ) {
 
 	e := types.InitElev()
@@ -32,6 +33,7 @@ func RunLocalElevator(
 	elevio.SetFloorIndicator(e.Floor)
 
 	for {
+		fmt.Println("For loop")
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 		select {
 		case newOrder := <-ch_newLocalOrder:
@@ -56,11 +58,10 @@ func RunLocalElevator(
 				case types.EB_DoorOpen:
 					ch_openDoor <- true
 					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
-					requests.Requests_clearAtCurrentFloor(&e)
+					e = requests.Requests_clearAtCurrentFloor(e)
 					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 				case types.EB_Moving:
 					ch_setMotorDirn <- e.Dirn
-
 				case types.EB_Idle:
 					break
 				}
@@ -74,7 +75,7 @@ func RunLocalElevator(
 				if requests.Requests_shouldStop(e) {
 					ch_setMotorDirn <- elevio.MD_Stop
 					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
-					requests.Requests_clearAtCurrentFloor(&e)
+					e = requests.Requests_clearAtCurrentFloor(e)
 					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 					ch_openDoor <- true
 					SetCabLights(e)
@@ -94,7 +95,7 @@ func RunLocalElevator(
 				case types.EB_DoorOpen:
 					ch_openDoor <- true
 					requestsBeforeClear := utilities.DeepCopyElevatorStruct(e).Requests
-					requests.Requests_clearAtCurrentFloor(&e)
+					e = requests.Requests_clearAtCurrentFloor(e)
 					sendLocalCompletedOrders(requestsBeforeClear, e.Requests, ch_localOrderCompleted)
 					SetCabLights(e)
 				case types.EB_Moving:
