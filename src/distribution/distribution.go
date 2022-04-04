@@ -7,7 +7,6 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 	"time"
 )
 
@@ -22,11 +21,11 @@ func Distribution(
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
-	ch_txHallCalls := make(chan types.HallCallsNetMsg, config.NumElevators) 
-	ch_rxHallCalls := make(chan types.HallCallsNetMsg, config.NumElevators)
-	ch_peerUpdate := make(chan peers.PeerUpdate, config.NumElevators)
+	ch_txHallCalls  := make(chan types.HallCallsNetMsg, config.NumElevators) 
+	ch_rxHallCalls  := make(chan types.HallCallsNetMsg, config.NumElevators)
+	ch_peerUpdate   := make(chan peers.PeerUpdate, config.NumElevators)
 	ch_peerTxEnable := make(chan bool)
-	ch_tick := tick.C
+	ch_tick 		:= tick.C
 
 	go bcast.Transmitter(config.PortBroadcast, ch_txHallCalls)
 	go bcast.Receiver(config.PortBroadcast, ch_rxHallCalls)
@@ -96,13 +95,12 @@ func Distribution(
 					}
 				}
 			}			
-			fmt.Println(hallCalls, "peers: ", peerAvailability)
 			ch_txHallCalls <- types.HallCallsNetMsg{
 				SenderID:  localID,
 				HallCalls: utilities.DeepCopyHallCalls(hallCalls),
 			}
-			ourOrders := generateOurHallCalls(hallCalls, localID)
-			allOrders := generateAllHallCalls(hallCalls)
+			ourOrders := genElevatorHallCalls(hallCalls, localID)
+			allOrders := genAllHallCalls(hallCalls)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if prevLocalOrders[floor][btn] != ourOrders[floor][btn] && hc.ExecutorID == localID {
@@ -192,7 +190,7 @@ func Distribution(
 						if hallCalls[floor][btn].OrderState == types.OS_Completed {
 							hallCalls[floor][btn].OrderState = types.OS_Unknown
 						}
-				}
+					}
 				}
 			}
 			ch_peerStatus <- utilities.DeepCopyPeerStatus(peerAvailability)
@@ -201,8 +199,6 @@ func Distribution(
 		}
 	}
 }
-
-
 
 
 func reassignHallcalls(HC [][]types.HallCall, reassignID string, assignToID string) [][]types.HallCall{
@@ -229,7 +225,7 @@ func reassignHallcalls(HC [][]types.HallCall, reassignID string, assignToID stri
 	return hallCalls
 }
 
-func generateOurHallCalls(hc [][]types.HallCall, elevatorID string) [][]bool {
+func genElevatorHallCalls(hc [][]types.HallCall, elevatorID string) [][]bool {
 	orderMatrix := make([][]bool, config.NumFloors)
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)
@@ -240,7 +236,7 @@ func generateOurHallCalls(hc [][]types.HallCall, elevatorID string) [][]bool {
 	return orderMatrix
 }
 
-func generateAllHallCalls(hc [][]types.HallCall) [][]bool {
+func genAllHallCalls(hc [][]types.HallCall) [][]bool {
 	orderMatrix := make([][]bool, config.NumFloors)
 	for i := range orderMatrix {
 		orderMatrix[i] = make([]bool, config.NumButtons-1)

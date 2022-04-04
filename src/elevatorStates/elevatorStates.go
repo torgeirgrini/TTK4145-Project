@@ -19,11 +19,11 @@ func ElevatorStates(
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
-	ch_txElevator := make(chan types.ElevStateNetMsg, config.NumElevators) 
-	ch_rxElevator := make(chan types.ElevStateNetMsg, config.NumElevators)
-	ch_peerUpdate := make(chan peers.PeerUpdate, config.NumElevators)
+	ch_txElevator	:= make(chan types.ElevStateNetMsg, config.NumElevators) 
+	ch_rxElevator	:= make(chan types.ElevStateNetMsg, config.NumElevators)
+	ch_peerUpdate 	:= make(chan peers.PeerUpdate, config.NumElevators)
 	ch_peerTxEnable := make(chan bool)
-	ch_tick := tick.C
+	ch_tick 		:= tick.C
 
 	elevators := make(map[string]types.Elevator)
 
@@ -59,17 +59,17 @@ func ElevatorStates(
 				}
 				init = false
 			}
-		case e := <-ch_localElevatorState:
-			elevators[localID] = e
+		case elev := <-ch_localElevatorState:
+			elevators[localID] = elev
 		default:
 		}
 	}
 	ch_elevMap <- utilities.DeepCopyElevatorMap(elevators)
 	for {
 		select {
-		case e := <-ch_localElevatorState:
-			if !reflect.DeepEqual(elevators[localID], e) {
-				elevators[localID] = utilities.DeepCopyElevatorStruct(e)
+		case elev := <-ch_localElevatorState:
+			if !reflect.DeepEqual(elevators[localID], elev) {
+				elevators[localID] = utilities.DeepCopyElevatorStruct(elev)
 				ch_elevMap <- utilities.DeepCopyElevatorMap(elevators)
 			}
 		case <-ch_tick:

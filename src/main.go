@@ -63,7 +63,7 @@ func main() {
 	go assigner.Assignment(id, ch_peerStatus, ch_elevMap, ch_hwButtonPress, ch_assignedOrder)
 	go distribution.Distribution(id, ch_peerStatus, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck, ch_cancelOrder)
 	go elevatorStates.ElevatorStates(id, ch_localElevatorState, ch_elevMap, ch_newLocalOrder)
-	
+
 	ch_wait := make(chan bool)
 	<-ch_wait
 }

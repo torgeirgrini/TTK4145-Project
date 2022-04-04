@@ -8,10 +8,10 @@ import (
 )
 
 func Door(
-	ch_hwObstruction <-chan   bool,
-	ch_openDoor		 <-chan   bool,
-	ch_stuck 		   chan<- bool,
-	ch_doorClosed 	   chan<- bool,
+	ch_hwObstruction <-chan bool,
+	ch_openDoor 	 <-chan bool,
+	ch_stuck 		 chan<- bool,
+	ch_doorClosed 	 chan<- bool,
 ) {
 	var doorState types.DoorState = types.DS_Closed
 	elevio.SetDoorOpenLamp(false)
@@ -21,7 +21,7 @@ func Door(
 	DoorTimer.Stop()
 	ch_doorTimer := DoorTimer.C
 
-	ObstructionTimer := time.NewTimer(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
+	ObstructionTimer := time.NewTimer(time.Duration(config.ObstructionTimeOut_s) * time.Second)
 	ObstructionTimer.Stop()
 	ch_obstructionTimer := ObstructionTimer.C
 
@@ -31,7 +31,7 @@ func Door(
 			switch doorState {
 			case types.DS_Open:
 				doorState = types.DS_Obstructed
-				ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
+				ObstructionTimer.Reset(time.Duration(config.ObstructionTimeOut_s) * time.Second)
 				DoorTimer.Stop()
 			case types.DS_Closed:
 			case types.DS_Obstructed:
@@ -47,7 +47,7 @@ func Door(
 			case types.DS_Closed:
 				if obstruction {
 					doorState = types.DS_Obstructed
-					ObstructionTimer.Reset(time.Duration(config.TimeBeforeUnavailable_s) * time.Second)
+					ObstructionTimer.Reset(time.Duration(config.ObstructionTimeOut_s) * time.Second)
 					DoorTimer.Stop()
 				} else {
 					doorState = types.DS_Open
