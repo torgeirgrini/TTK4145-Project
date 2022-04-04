@@ -49,7 +49,7 @@ func ElevatorStates(
 			init = false
 		case initState := <-ch_rxElevator:
 			if initState.ElevStateID == localID {
-				for floor := 0; floor < config.NumFloors; floor++ {
+				for floor := config.NumFloors - 1; floor >= 0 ; floor-- {
 					if initState.ElevState.Requests[floor][elevio.BT_Cab] {
 						ch_newLocalOrder <- elevio.ButtonEvent{
 							Floor:  floor,
