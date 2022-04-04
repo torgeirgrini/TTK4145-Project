@@ -7,7 +7,6 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 	"time"
 )
 
@@ -80,7 +79,6 @@ func Distribution(
 				prevLocalOrders[compOrder.Floor][compOrder.Button] = false
 			}
 		case <-ch_tick:
-			fmt.Println(hallCalls, "peers", peerAvailability)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
@@ -185,7 +183,6 @@ func Distribution(
 				}
 			} else if peerAvailability.New != "" {
 				delete(unavailableSet, peerAvailability.New)
-
 				for floor := 0; floor < config.NumFloors; floor++ {
 					for btn := 0; btn < config.NumButtons-1; btn++ {
 						if hallCalls[floor][btn].OrderState == types.OS_Completed {
