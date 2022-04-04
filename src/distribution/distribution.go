@@ -18,6 +18,7 @@ func Distribution(
 	ch_newLocalOrder 		 chan<- elevio.ButtonEvent,
 	ch_localOrderCompleted <-chan   elevio.ButtonEvent,
 	ch_stuck 			   <-chan   bool,
+	ch_cancelOrder		  	 chan<- elevio.ButtonEvent,
 ) {
 	tick := time.NewTicker(config.TransmitInterval_ms * time.Millisecond)
 
@@ -79,7 +80,7 @@ func Distribution(
 				prevLocalOrders[compOrder.Floor][compOrder.Button] = false
 			}
 		case <-ch_tick:
-			fmt.Println(hallCalls)
+			fmt.Println(hallCalls, "peers: ", peerAvailability)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
@@ -146,6 +147,9 @@ func Distribution(
 						case types.OS_Confirmed:
 							switch remote.HallCalls[floor][btn].OrderState {
 							case types.OS_Completed:
+								if hc.ExecutorID == localID {
+									ch_cancelOrder <- elevio.ButtonEvent{Floor: floor, Button: elevio.ButtonType(btn)}
+								}
 								hallCalls[floor][btn] = completedHallCall()
 							case types.OS_Unconfirmed:
 							case types.OS_Confirmed:
@@ -175,7 +179,6 @@ func Distribution(
 				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
-			fmt.Println(peerAvailability)
 			if len(peerAvailability.Lost) != 0 {
 				for _, id := range peerAvailability.Lost {
 					unavailableSet[id] = types.Void{}
@@ -184,7 +187,7 @@ func Distribution(
 				delete(unavailableSet, peerAvailability.New)
 
 				for floor := 0; floor < config.NumFloors; floor++ {
-					for btn := 0; btn < config.NumButtons; btn++ {
+					for btn := 0; btn < config.NumButtons-1; btn++ {
 						if hallCalls[floor][btn].OrderState == types.OS_Completed {
 							hallCalls[floor][btn].OrderState = types.OS_Unknown
 						}

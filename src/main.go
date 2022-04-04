@@ -38,6 +38,7 @@ func main() {
 	//Channels between localElevator and distributor
 	ch_newLocalOrder := make(chan elevio.ButtonEvent, config.NumButtons*config.NumFloors)
 	ch_localOrderCompleted := make(chan elevio.ButtonEvent, config.NumButtons)
+	ch_cancelOrder := make(chan elevio.ButtonEvent, config.NumElevators)
 
 	//Channel from localElevator to elevatorStates
 	ch_localElevatorState := make(chan types.Elevator, 1)
@@ -56,11 +57,11 @@ func main() {
 	go elevio.PollFloorSensor(ch_hwFloor)
 	go elevio.PollObstructionSwitch(ch_hwObstruction)
 
-	go elevator.LocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn)
+	go elevator.LocalElevator(ch_newLocalOrder, ch_hwFloor, ch_localElevatorState, ch_localOrderCompleted, ch_openDoor, ch_doorClosed, ch_setMotorDirn, ch_cancelOrder)
 	go motor.Motor(ch_stuck, ch_setMotorDirn)
 	go door.Door(ch_hwObstruction, ch_openDoor, ch_stuck, ch_doorClosed)
 	go assigner.Assignment(id, ch_peerStatus, ch_elevMap, ch_hwButtonPress, ch_assignedOrder)
-	go distribution.Distribution(id, ch_peerStatus, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck)
+	go distribution.Distribution(id, ch_peerStatus, ch_assignedOrder, ch_newLocalOrder, ch_localOrderCompleted, ch_stuck, ch_cancelOrder)
 	go elevatorStates.ElevatorStates(id, ch_localElevatorState, ch_elevMap, ch_newLocalOrder)
 	
 	ch_wait := make(chan bool)

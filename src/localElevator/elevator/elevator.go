@@ -16,6 +16,7 @@ func LocalElevator(
 	ch_openDoor 			chan<- bool,
 	ch_doorClosed 		  <-chan   bool,
 	ch_setMotorDirn			chan<- elevio.MotorDirection,
+	ch_cancelOrder		  <-chan   elevio.ButtonEvent,
 ) {
 
 	e := InitElev()
@@ -103,6 +104,8 @@ func LocalElevator(
 			case types.EB_Moving:
 			case types.EB_Idle:
 			}
+		case order := <-ch_cancelOrder:
+			e.Requests[order.Floor][int(order.Button)] = false
 		}
 	}
 }
