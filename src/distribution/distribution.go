@@ -7,6 +7,7 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
+	"fmt"
 	"time"
 )
 
@@ -78,6 +79,7 @@ func Distribution(
 				prevLocalOrders[compOrder.Floor][compOrder.Button] = false
 			}
 		case <-ch_tick:
+			fmt.Println(hallCalls)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
@@ -173,12 +175,21 @@ func Distribution(
 				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
+			fmt.Println(peerAvailability)
 			if len(peerAvailability.Lost) != 0 {
 				for _, id := range peerAvailability.Lost {
 					unavailableSet[id] = types.Void{}
 				}
 			} else if peerAvailability.New != "" {
 				delete(unavailableSet, peerAvailability.New)
+
+				for floor := 0; floor < config.NumFloors; floor++ {
+					for btn := 0; btn < config.NumButtons; btn++ {
+						if hallCalls[floor][btn].OrderState == types.OS_Completed {
+							hallCalls[floor][btn].OrderState = types.OS_Unknown
+						}
+				}
+				}
 			}
 			ch_peerStatus <- utilities.DeepCopyPeerStatus(peerAvailability)
 		case localElevStuck := <-ch_stuck:
