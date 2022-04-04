@@ -7,6 +7,7 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
+	"fmt"
 	"time"
 )
 
@@ -79,22 +80,14 @@ func Distribution(
 				prevLocalOrders[compOrder.Floor][compOrder.Button] = false
 			}
 		case <-ch_tick:
+			fmt.Println(hallCalls, "peers", peerAvailability)
 			for floor := 0; floor < config.NumFloors; floor++ {
 				for btn, hc := range hallCalls[floor] {
 					if hc.OrderState == types.OS_Unconfirmed && utilities.ContainsStringSlice(hc.AckList, peerAvailability.Peers) {
 						hallCalls[floor][btn].OrderState = types.OS_Confirmed
 					}
 				}
-			}			
-			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) || len(peerAvailability.Peers) == 0 {
-				for floor := 0; floor < config.NumFloors; floor++ {
-					for btn, hc := range hallCalls[floor] {
-						if hc.OrderState == types.OS_Completed {
-							hallCalls[floor][btn].OrderState = types.OS_Unknown
-						}
-					}
-				}
-			}			
+			}					
 			ch_txHallCalls <- types.HallCallsNetMsg{
 				SenderID:  localID,
 				HallCalls: utilities.DeepCopyHallCalls(hallCalls),
@@ -115,7 +108,15 @@ func Distribution(
 			for id := range unavailableSet {
 				hallCalls = reassignHallcalls(hallCalls,id,localID)
 			}
-
+			if utilities.EqualStringSlice(peerAvailability.Peers, []string{localID}) || len(peerAvailability.Peers) == 0 {
+				for floor := 0; floor < config.NumFloors; floor++ {
+					for btn, hc := range hallCalls[floor] {
+						if hc.OrderState == types.OS_Completed {
+							hallCalls[floor][btn].OrderState = types.OS_Unknown
+						}
+					}
+				}
+			}	
 		case remote := <-ch_rxHallCalls:
 			if remote.SenderID != localID {
 				for floor := 0; floor < config.NumFloors; floor++ {
