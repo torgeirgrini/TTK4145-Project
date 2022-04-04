@@ -6,7 +6,8 @@ import (
 	"Project/types"
 )
 
-func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
+/*
+func DeepCopyElevatorStruct2(e types.Elevator) types.Elevator {
 	e2 := types.InitElev()
 	e2.Floor = e.Floor
 	e2.Dirn = e.Dirn
@@ -18,6 +19,23 @@ func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
 		copy(e2.Requests[i], e.Requests[i])
 	}
 	return e2
+}*/
+
+func DeepCopyElevatorStruct(e types.Elevator) types.Elevator {
+	requestMatrix := make([][]bool, config.NumFloors)
+	for floor := 0; floor < config.NumFloors; floor++ {
+		requestMatrix[floor] = make([]bool, config.NumButtons)
+		for button := range requestMatrix[floor] {
+			requestMatrix[floor][button] = e.Requests[floor][button]
+		}
+	}
+	return types.Elevator{
+		Floor:               e.Floor,
+		Dirn:                e.Dirn,
+		Requests:            requestMatrix,
+		Behaviour:           e.Behaviour,
+		ClearRequestVariant: e.ClearRequestVariant}
+
 }
 
 func DeepCopyElevatorMap(elevators map[string]types.Elevator) map[string]types.Elevator {
@@ -50,8 +68,8 @@ func DeepCopyStringSlice(slice []string) []string {
 func DeepCopyPeerStatus(peerstatus peers.PeerUpdate) peers.PeerUpdate {
 	return peers.PeerUpdate{
 		Peers: DeepCopyStringSlice(peerstatus.Peers),
-		Lost: DeepCopyStringSlice(peerstatus.Lost),
-		New: peerstatus.New,
+		Lost:  DeepCopyStringSlice(peerstatus.Lost),
+		New:   peerstatus.New,
 	}
 }
 
@@ -114,9 +132,9 @@ func ContainsStringSlice(slice, subslice []string) bool {
 
 func ContainsString(sl []string, str string) bool {
 	for _, value := range sl {
-	   if value == str {
-		  return true
-	   }
+		if value == str {
+			return true
+		}
 	}
 	return false
- }
+}

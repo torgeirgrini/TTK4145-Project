@@ -1,7 +1,6 @@
 package types
 
 import (
-	"Project/config"
 	"Project/localElevator/elevio"
 )
 
@@ -43,9 +42,9 @@ const (
 )
 
 type HallCall struct {
-	ExecutorID 	string
-	OrderState 	OrderState
-	AckList    	[]string
+	ExecutorID string
+	OrderState OrderState
+	AckList    []string
 }
 
 type ElevStateNetMsg struct {
@@ -54,9 +53,9 @@ type ElevStateNetMsg struct {
 	ElevState   Elevator
 }
 
-type HallCallsNetMsg struct{
-	SenderID 	string
-	HallCalls 	[][]HallCall
+type HallCallsNetMsg struct {
+	SenderID  string
+	HallCalls [][]HallCall
 }
 
 type Action struct {
@@ -70,22 +69,6 @@ type Elevator struct {
 	Requests            [][]bool
 	Behaviour           ElevatorBehaviour
 	ClearRequestVariant ClearRequestVariant
-}
-
-func InitElev() Elevator {
-	requestMatrix := make([][]bool, config.NumFloors)
-	for floor := 0; floor < config.NumFloors; floor++ {
-		requestMatrix[floor] = make([]bool, config.NumButtons)
-		for button := range requestMatrix[floor] {
-			requestMatrix[floor][button] = false
-		}
-	}
-	return Elevator{
-		Floor:               0,
-		Dirn:                elevio.MD_Stop,
-		Requests:            requestMatrix,
-		Behaviour:           EB_Idle,
-		ClearRequestVariant: CV_InDirn}
 }
 
 type Void struct{}

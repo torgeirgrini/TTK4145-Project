@@ -7,7 +7,6 @@ import (
 	"Project/network/peers"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -30,8 +29,8 @@ func ElevatorStates(
 
 	go bcast.Transmitter(config.PortBroadcast, ch_txElevator)
 	go bcast.Receiver(config.PortBroadcast, ch_rxElevator)
-	go peers.Transmitter(config.PortPeersWW, localID, ch_peerTxEnable)
-	go peers.Receiver(config.PortPeersWW, ch_peerUpdate)
+	go peers.Transmitter(config.PortPeersElevStates, localID, ch_peerTxEnable)
+	go peers.Receiver(config.PortPeersElevStates, ch_peerUpdate)
 
 	peerAvailability := peers.PeerUpdate{
 		Peers: []string{localID},
@@ -41,7 +40,7 @@ func ElevatorStates(
 
 	elevators[localID] = <-ch_localElevatorState
 
-	InitTimer := time.NewTimer(time.Duration(3) * time.Second)
+	InitTimer := time.NewTimer(time.Duration(config.InitTime_s) * time.Second)
 	ch_initTimer := InitTimer.C
 	init := true
 	for init {
@@ -87,7 +86,6 @@ func ElevatorStates(
 				}
 			}
 		case peerAvailability = <-ch_peerUpdate:
-			fmt.Println("Peer | WW: ", peerAvailability)
 			if peerAvailability.New != localID && peerAvailability.New != "" {
 				if _, ok := elevators[peerAvailability.New]; ok {
 					ch_txElevator <- types.ElevStateNetMsg{

@@ -6,7 +6,6 @@ import (
 	"Project/localElevator/requests"
 	"Project/types"
 	"Project/utilities"
-	"fmt"
 )
 
 func LocalElevator(
@@ -19,7 +18,7 @@ func LocalElevator(
 	ch_setMotorDirn			chan<- elevio.MotorDirection,
 ) {
 
-	e := types.InitElev()
+	e := InitElev()
 	SetCabLights(e)
 
 	e.Dirn = elevio.MD_Down
@@ -33,7 +32,6 @@ func LocalElevator(
 	elevio.SetFloorIndicator(e.Floor)
 
 	for {
-		fmt.Println("For loop")
 		ch_localElevatorState <- utilities.DeepCopyElevatorStruct(e)
 		select {
 		case newOrder := <-ch_newLocalOrder:
@@ -84,11 +82,10 @@ func LocalElevator(
 			default:
 				break
 			}
-
 		case <-ch_doorClosed:
 			switch e.Behaviour {
 			case types.EB_DoorOpen:
-				action := requests.Requests_nextAction(e, elevio.BT_Cab) //litt for hard workaround?
+				action := requests.Requests_nextAction(e, elevio.BT_Cab)
 				e.Dirn = action.Dirn
 				e.Behaviour = action.Behaviour
 				switch e.Behaviour {
@@ -108,6 +105,22 @@ func LocalElevator(
 			}
 		}
 	}
+}
+
+func InitElev() types.Elevator {
+	requestMatrix := make([][]bool, config.NumFloors)
+	for floor := 0; floor < config.NumFloors; floor++ {
+		requestMatrix[floor] = make([]bool, config.NumButtons)
+		for button := range requestMatrix[floor] {
+			requestMatrix[floor][button] = false
+		}
+	}
+	return types.Elevator{
+		Floor:               0,
+		Dirn:                elevio.MD_Stop,
+		Requests:            requestMatrix,
+		Behaviour:           types.EB_Idle,
+		ClearRequestVariant: types.CV_InDirn}
 }
 
 func sendLocalCompletedOrders(reqBeforeClear [][]bool, reqAfterClear [][]bool, ch_localOrderCompleted chan<- elevio.ButtonEvent) {
